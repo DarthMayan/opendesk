@@ -3,32 +3,68 @@
 {% block title %}Iniciar sesion | OpenDesk{% endblock %}
 
 {% block content %}
-<section class="row justify-content-center">
-    <div class="col-lg-6 col-xl-5">
-        <div class="card od-card">
-            <div class="card-body p-4 p-md-5">
-                <p class="text-uppercase text-muted fw-semibold mb-2">Acceso</p>
-                <h1 class="h2 fw-bold mb-3">Inicia sesion en OpenDesk</h1>
-                <p class="text-secondary mb-4">
-                    Entra con tu cuenta para revisar el estado de soporte y administrar tickets.
-                </p>
+<section class="row justify-content-center align-items-stretch g-4 od-fade-up">
+    <div class="col-xl-10">
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card od-card od-glass-dark h-100 overflow-hidden">
+                    <div class="card-body p-4 p-md-5 d-flex flex-column justify-content-between">
+                        <div>
+                            <p class="text-uppercase small text-white-50 fw-semibold mb-3">Acceso</p>
+                            <h1 class="display-6 fw-bold mb-3">Inicia sesion en OpenDesk</h1>
+                            <p class="mb-4 text-white-50">
+                                Entra con tu cuenta para revisar el estado de soporte y administrar tickets desde una sola vista.
+                            </p>
+                        </div>
 
-                <form method="post" class="d-grid gap-3">
-                    <div>
-                        <label for="email" class="form-label">Correo</label>
-                        <input id="email" name="email" type="email" class="form-control form-control-lg" placeholder="tu@correo.com" required>
+                        <div class="d-grid gap-3">
+                            <div class="rounded-4 p-3" style="background-color: rgba(255, 255, 255, 0.08);">
+                                <strong class="d-block mb-1">Seguimiento claro</strong>
+                                <span class="small text-white-50">Navega tickets por prioridad, estado y responsable.</span>
+                            </div>
+                            <div class="rounded-4 p-3" style="background-color: rgba(255, 255, 255, 0.08);">
+                                <strong class="d-block mb-1">Sesion persistente</strong>
+                                <span class="small text-white-50">Tu navbar cambia segun el contexto del usuario autenticado.</span>
+                            </div>
+                            <div class="rounded-4 p-3" style="background-color: rgba(255, 255, 255, 0.08);">
+                                <strong class="d-block mb-1">Base para crecer</strong>
+                                <span class="small text-white-50">La UI ya esta lista para sumar creacion y edicion de tickets.</span>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label for="password" class="form-label">Contrasena</label>
-                        <input id="password" name="password" type="password" class="form-control form-control-lg" placeholder="Tu contrasena" required>
-                    </div>
-                    <button type="submit" class="btn btn-lg od-solid-btn">Entrar</button>
-                </form>
+                </div>
+            </div>
 
-                <p class="text-secondary mt-4 mb-0">
-                    No tienes cuenta?
-                    <a href="{{ url_for('auth.register') }}" class="link-dark fw-semibold">Registrate aqui</a>.
-                </p>
+            <div class="col-lg-6">
+                <div class="card od-card h-100">
+                    <div class="card-body p-4 p-md-5">
+                        <p class="od-section-kicker mb-2">Bienvenido de vuelta</p>
+                        <h2 class="h2 fw-bold mb-3">Accede a tu espacio de soporte</h2>
+                        <p class="od-lead mb-4">
+                            Usa tus credenciales para entrar y continuar con el seguimiento de incidencias.
+                        </p>
+
+                        <form method="post" class="d-grid gap-3">
+                            <div>
+                                <label for="email" class="form-label fw-semibold">Correo</label>
+                                <input id="email" name="email" type="email" class="form-control form-control-lg od-form-control" placeholder="tu@correo.com" required>
+                            </div>
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <label for="password" class="form-label fw-semibold mb-0">Contrasena</label>
+                                    <span class="small od-muted">Acceso seguro</span>
+                                </div>
+                                <input id="password" name="password" type="password" class="form-control form-control-lg od-form-control" placeholder="Tu contrasena" required>
+                            </div>
+                            <button type="submit" class="btn btn-lg od-solid-btn mt-2">Entrar</button>
+                        </form>
+
+                        <div class="od-panel p-3 mt-4">
+                            <p class="small od-muted mb-1">Primera vez en la plataforma?</p>
+                            <a href="{{ url_for('auth.register') }}" class="link-dark fw-semibold text-decoration-none">Registrate aqui</a>.
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
