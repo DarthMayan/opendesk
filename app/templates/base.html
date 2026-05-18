@@ -5,15 +5,167 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}OpenDesk{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --od-primary: #0f3d3e;
+            --od-accent: #f2a65a;
+            --od-surface: #f7f3eb;
+            --od-surface-strong: #efe6d8;
+            --od-text: #1f2933;
+            --od-muted: #62707c;
+        }
+
+        body {
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at top left, rgba(242, 166, 90, 0.16), transparent 28%),
+                linear-gradient(180deg, #fcfbf7 0%, var(--od-surface) 100%);
+            color: var(--od-text);
+        }
+
+        .od-navbar {
+            background: linear-gradient(135deg, #112f41 0%, var(--od-primary) 100%);
+            box-shadow: 0 14px 30px rgba(17, 47, 65, 0.18);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .od-shell {
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+        }
+
+        .od-card {
+            border: 0;
+            border-radius: 1.25rem;
+            box-shadow: 0 16px 40px rgba(17, 47, 65, 0.08);
+        }
+
+        .od-chip {
+            background-color: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 999px;
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            padding: 0.4rem 0.85rem;
+            text-decoration: none;
+        }
+
+        .od-nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+        }
+
+        .od-nav-link:hover,
+        .od-nav-link:focus,
+        .od-nav-link.active {
+            color: #fff;
+        }
+
+        .od-outline-btn {
+            border-radius: 999px;
+            border-color: rgba(255, 255, 255, 0.4);
+            color: #fff;
+        }
+
+        .od-outline-btn:hover {
+            border-color: #fff;
+            background-color: rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+
+        .od-solid-btn {
+            border-radius: 999px;
+            background-color: var(--od-accent);
+            border-color: var(--od-accent);
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        .od-solid-btn:hover {
+            background-color: #f4b77a;
+            border-color: #f4b77a;
+            color: #1e293b;
+        }
+
+        .od-section-kicker {
+            color: var(--od-muted);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .od-stat {
+            background: linear-gradient(160deg, #ffffff 0%, #fbf5ea 100%);
+        }
+
+        .od-muted {
+            color: var(--od-muted);
+        }
+
+        .od-timeline-dot {
+            width: 0.8rem;
+            height: 0.8rem;
+            border-radius: 999px;
+            background-color: var(--od-accent);
+            box-shadow: 0 0 0 6px rgba(242, 166, 90, 0.18);
+            flex: 0 0 auto;
+            margin-top: 0.35rem;
+        }
+
+        .od-empty-state {
+            background: linear-gradient(135deg, rgba(17, 47, 65, 0.03), rgba(242, 166, 90, 0.08));
+            border: 1px dashed rgba(17, 47, 65, 0.18);
+            border-radius: 1.25rem;
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg od-navbar" data-testid="main-navbar">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('main.index') }}">OpenDesk</a>
+            <a class="navbar-brand text-white" href="{{ url_for('main.index') }}">OpenDesk</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Mostrar navegacion">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNav">
+                <div class="navbar-nav me-auto mb-3 mb-lg-0">
+                    <a class="nav-link od-nav-link{% if request.endpoint == 'main.index' %} active{% endif %}" href="{{ url_for('main.index') }}">Inicio</a>
+                    {% if current_user.is_authenticated %}
+                    <a class="nav-link od-nav-link{% if request.endpoint and request.endpoint.startswith('tickets.') %} active{% endif %}" href="{{ url_for('tickets.list_tickets') }}">Tickets</a>
+                    {% endif %}
+                </div>
+                <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+                    {% if current_user.is_authenticated %}
+                    <span class="od-chip">{{ current_user.name }}</span>
+                    <a class="btn btn-sm od-outline-btn" href="{{ url_for('auth.logout') }}">Cerrar sesion</a>
+                    {% else %}
+                    <a class="btn btn-sm od-outline-btn" href="{{ url_for('auth.login') }}">Iniciar sesion</a>
+                    <a class="btn btn-sm od-solid-btn" href="{{ url_for('auth.register') }}">Crear cuenta</a>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </nav>
-    <main class="container py-4">
+    <main class="container od-shell">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-4">
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
         {% block content %}{% endblock %}
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

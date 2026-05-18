@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket #{{ ticket.id }} | OpenDesk{% endblock %}
+
+{% block content %}
+<section class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+        <p class="od-section-kicker mb-2">Detalle de ticket</p>
+        <h1 class="display-6 fw-bold mb-2">{{ ticket.title }}</h1>
+        <div class="d-flex flex-wrap gap-2">
+            <span class="badge {{ status_meta[ticket.status].class }}">{{ status_meta[ticket.status].label }}</span>
+            <span class="badge {{ priority_meta[ticket.priority].class }}">{{ priority_meta[ticket.priority].label }}</span>
+        </div>
+    </div>
+    <a class="btn btn-outline-dark rounded-pill" href="{{ url_for('tickets.list_tickets') }}">Volver a tickets</a>
+</section>
+
+<section class="row g-4">
+    <div class="col-lg-8">
+        <div class="card od-card mb-4">
+            <div class="card-body p-4 p-md-5">
+                <p class="od-section-kicker mb-2">Descripcion</p>
+                <p class="mb-0 fs-5 lh-lg">{{ ticket.description }}</p>
+            </div>
+        </div>
+
+        <div class="card od-card">
+            <div class="card-body p-4 p-md-5">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <p class="od-section-kicker mb-2">Historial</p>
+                        <h2 class="h4 mb-0">Comentarios del ticket</h2>
+                    </div>
+                    <span class="badge rounded-pill text-bg-dark">{{ comments|length }}</span>
+                </div>
+
+                {% if comments %}
+                    <div class="d-grid gap-4">
+                        {% for comment in comments %}
+                        <div class="d-flex gap-3">
+                            <div class="od-timeline-dot"></div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex flex-column flex-md-row justify-content-between gap-2 mb-2">
+                                    <strong>{{ comment.author.name }}</strong>
+                                    <span class="small od-muted">{{ comment.created_at.strftime("%d/%m/%Y %H:%M") }}</span>
+                                </div>
+                                <div class="rounded-4 p-3" style="background-color: var(--od-surface-strong);">
+                                    {{ comment.body }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                <div class="od-empty-state p-4">
+                    <strong class="d-block mb-2">Sin comentarios por ahora</strong>
+                    <span class="od-muted">Este detalle ya tiene la estructura lista para mostrar historial de soporte cuando se capture.</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card od-card mb-4">
+            <div class="card-body p-4">
+                <p class="od-section-kicker mb-3">Ficha</p>
+                <dl class="mb-0">
+                    <dt class="mb-1">ID</dt>
+                    <dd class="od-muted mb-3">#{{ ticket.id }}</dd>
+                    <dt class="mb-1">Creado por</dt>
+                    <dd class="od-muted mb-3">{{ ticket.creator.name }}</dd>
+                    <dt class="mb-1">Asignado a</dt>
+                    <dd class="od-muted mb-3">{{ ticket.assignee.name if ticket.assignee else "Sin asignar" }}</dd>
+                    <dt class="mb-1">Creado</dt>
+                    <dd class="od-muted mb-3">{{ ticket.created_at.strftime("%d/%m/%Y %H:%M") }}</dd>
+                    <dt class="mb-1">Ultima actualizacion</dt>
+                    <dd class="od-muted mb-0">{{ ticket.updated_at.strftime("%d/%m/%Y %H:%M") }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card od-card">
+            <div class="card-body p-4">
+                <p class="od-section-kicker mb-3">Contexto rapido</p>
+                <p class="od-muted mb-0">
+                    Esta vista puede crecer despues con SLA, cambios de estado, asignaciones y acciones del tecnico sin rehacer la estructura visual.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

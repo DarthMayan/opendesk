@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar sesion | OpenDesk{% endblock %}
+
+{% block content %}
+<section class="row justify-content-center">
+    <div class="col-lg-6 col-xl-5">
+        <div class="card od-card">
+            <div class="card-body p-4 p-md-5">
+                <p class="text-uppercase text-muted fw-semibold mb-2">Acceso</p>
+                <h1 class="h2 fw-bold mb-3">Inicia sesion en OpenDesk</h1>
+                <p class="text-secondary mb-4">
+                    Entra con tu cuenta para revisar el estado de soporte y administrar tickets.
+                </p>
+
+                <form method="post" class="d-grid gap-3">
+                    <div>
+                        <label for="email" class="form-label">Correo</label>
+                        <input id="email" name="email" type="email" class="form-control form-control-lg" placeholder="tu@correo.com" required>
+                    </div>
+                    <div>
+                        <label for="password" class="form-label">Contrasena</label>
+                        <input id="password" name="password" type="password" class="form-control form-control-lg" placeholder="Tu contrasena" required>
+                    </div>
+                    <button type="submit" class="btn btn-lg od-solid-btn">Entrar</button>
+                </form>
+
+                <p class="text-secondary mt-4 mb-0">
+                    No tienes cuenta?
+                    <a href="{{ url_for('auth.register') }}" class="link-dark fw-semibold">Registrate aqui</a>.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
