@@ -34,7 +34,7 @@ Ejemplos:
 Antes de abrir un PR, ejecuta la suite:
 
 ```bash
-pytest
+python -m pytest
 ```
 
 ## Reporte de issues

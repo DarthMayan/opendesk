@@ -76,9 +76,9 @@ no usa ningún servicio de pago.
 git clone https://github.com/DarthMayan/opendesk.git
 cd opendesk
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env            # Windows: copy .env.example .env
+source venv/bin/activate        # Windows (PowerShell): .\venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+cp .env.example .env            # Windows: Copy-Item .env.example .env
 python run.py
 ```
 
@@ -93,7 +93,7 @@ docker-compose up --build
 ## Pruebas
 
 ```bash
-pytest
+python -m pytest
 ```
 
 ## Licencia
