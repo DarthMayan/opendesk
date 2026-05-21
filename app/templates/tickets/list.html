@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Tickets | OpenDesk{% endblock %}
+
+{% block content %}
+<section class="row g-4 mb-4 od-fade-up">
+    <div class="col-lg-8">
+        <div class="card od-card h-100 overflow-hidden">
+            <div class="card-body p-4 p-md-5">
+                <p class="od-section-kicker mb-2">Panel de tickets</p>
+                <h1 class="display-6 fw-bold mb-3">Seguimiento visual de incidencias</h1>
+                <p class="od-lead mb-0">
+                    Revisa prioridad, estado, responsables y contexto general de cada solicitud desde una sola vista.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card od-card od-glass-dark h-100">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div>
+                    <p class="text-uppercase small text-white-50 mb-2">Sesion activa</p>
+                    <h2 class="h4 mb-2">{{ current_user.name }}</h2>
+                    <p class="mb-0 text-white-50">
+                        Usa esta vista como base del tablero de soporte del proyecto.
+                    </p>
+                </div>
+                <div class="d-flex gap-2 mt-4 flex-wrap">
+                    <span class="od-chip">Tickets {{ stats.total }}</span>
+                    <span class="od-chip">Prioridad alta {{ stats.high_priority }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="row g-3 mb-4 od-fade-up">
+    <div class="col-6 col-lg-3">
+        <div class="card od-card od-stat h-100">
+            <div class="card-body p-4">
+                <div class="od-section-kicker mb-2">Total</div>
+                <div class="display-6 fw-bold">{{ stats.total }}</div>
+                <div class="small od-muted mt-2">Incidencias visibles en la cola</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card od-card od-stat h-100">
+            <div class="card-body p-4">
+                <div class="od-section-kicker mb-2">Abiertos</div>
+                <div class="display-6 fw-bold">{{ stats.open }}</div>
+                <div class="small od-muted mt-2">Pendientes de trabajo inicial</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card od-card od-stat h-100">
+            <div class="card-body p-4">
+                <div class="od-section-kicker mb-2">En proceso</div>
+                <div class="display-6 fw-bold">{{ stats.in_progress }}</div>
+                <div class="small od-muted mt-2">Ya con seguimiento tecnico</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card od-card od-stat h-100">
+            <div class="card-body p-4">
+                <div class="od-section-kicker mb-2">Alta prioridad</div>
+                <div class="display-6 fw-bold">{{ stats.high_priority }}</div>
+                <div class="small od-muted mt-2">Requieren atencion inmediata</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="d-grid gap-4">
+    {% if tickets %}
+        {% for ticket in tickets %}
+        <article class="card od-card od-ticket-card od-fade-up">
+            <div class="card-body p-4 p-md-4">
+                <div class="d-flex flex-column flex-xl-row justify-content-between gap-4">
+                    <div class="flex-grow-1">
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge {{ status_meta[ticket.status].class }}">{{ status_meta[ticket.status].label }}</span>
+                            <span class="badge {{ priority_meta[ticket.priority].class }}">{{ priority_meta[ticket.priority].label }}</span>
+                            <span class="badge rounded-pill text-bg-dark-subtle text-dark">Ticket #{{ ticket.id }}</span>
+                        </div>
+                        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+                            <div>
+                                <h2 class="h4 mb-2">{{ ticket.title }}</h2>
+                                <p class="od-muted mb-0">{{ ticket.description[:180] }}{% if ticket.description|length > 180 %}...{% endif %}</p>
+                            </div>
+                        </div>
+                        <div class="row g-3 pt-2">
+                            <div class="col-sm-6 col-xl-3">
+                                <span class="od-meta-label">Creado por</span>
+                                <span>{{ ticket.creator.name }}</span>
+                            </div>
+                            <div class="col-sm-6 col-xl-3">
+                                <span class="od-meta-label">Asignado a</span>
+                                <span>{{ ticket.assignee.name if ticket.assignee else "Sin asignar" }}</span>
+                            </div>
+                            <div class="col-sm-6 col-xl-3">
+                                <span class="od-meta-label">Actualizado</span>
+                                <span>{{ ticket.updated_at.strftime("%d/%m/%Y %H:%M") }}</span>
+                            </div>
+                            <div class="col-sm-6 col-xl-3">
+                                <span class="od-meta-label">Estado visible</span>
+                                <span>{{ status_meta[ticket.status].label }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-xl-center">
+                        <a class="btn od-solid-btn px-4" href="{{ url_for('tickets.ticket_detail', ticket_id=ticket.id) }}">Ver detalle</a>
+                    </div>
+                </div>
+            </div>
+        </article>
+        {% endfor %}
+    {% else %}
+    <div class="od-empty-state p-5 text-center od-fade-up">
+        <p class="od-section-kicker mb-2">Sin tickets todavia</p>
+        <h2 class="h3 mb-3">La lista esta lista para mostrar incidencias reales</h2>
+        <p class="od-muted mb-0">
+            Cuando el equipo agregue tickets al sistema, aqui apareceran con prioridad, estado, responsables y acceso al detalle.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | OpenDesk{% endblock %}
+
+{% block content %}
+<section class="row g-4 mb-4 od-fade-up">
+    <div class="col-lg-8">
+        <div class="card od-card h-100 overflow-hidden">
+            <div class="card-body p-4 p-md-5">
+                <p class="od-section-kicker mb-2">Dashboard de metricas</p>
+                <h1 class="display-6 fw-bold mb-3">Vista ejecutiva del soporte</h1>
+                <p class="od-lead mb-0">
+                    Supervisa volumen, prioridad, asignaciones y actividad reciente de la mesa de ayuda.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card od-card od-glass-dark h-100">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div>
+                    <p class="text-uppercase small text-white-50 mb-2">Operacion actual</p>
+                    <h2 class="h4 mb-2">{{ metrics.totals.active }} tickets activos</h2>
+                    <p class="mb-0 text-white-50">
+                        {{ metrics.totals.high_priority }} con prioridad alta y {{ metrics.totals.unassigned }} sin asignar.
+                    </p>
+                </div>
+                <div class="d-flex gap-2 mt-4 flex-wrap">
+                    <span class="od-chip">{{ metrics.totals.users }} usuarios</span>
+                    <span class="od-chip">{{ metrics.totals.comments }} comentarios</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="row g-3 mb-4 od-fade-up">
+    <div class="col-6 col-lg-3">
+        <div class="card od-card od-stat h-100">
+            <div class="card-body p-4">
+                <div class="od-section-kicker mb-2">Tickets</div>
+                <div class="display-6 fw-bold">{{ metrics.totals.tickets }}</div>
+                <div class="small od-muted mt-2">Registrados en el sistema</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card od-card od-stat h-100">
+            <div class="card-body p-4">
+                <div class="od-section-kicker mb-2">Activos</div>
+                <div class="display-6 fw-bold">{{ metrics.totals.active }}</div>
+                <div class="small od-muted mt-2">Abiertos o en proceso</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card od-card od-stat h-100">
+            <div class="card-body p-4">
+                <div class="od-section-kicker mb-2">Resueltos</div>
+                <div class="display-6 fw-bold">{{ metrics.totals.resolved }}</div>
+                <div class="small od-muted mt-2">Resueltos o cerrados</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card od-card od-stat h-100">
+            <div class="card-body p-4">
+                <div class="od-section-kicker mb-2">Sin asignar</div>
+                <div class="display-6 fw-bold">{{ metrics.totals.unassigned }}</div>
+                <div class="small od-muted mt-2">Pendientes de responsable</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card od-card h-100 od-fade-up">
+            <div class="card-body p-4">
+                <p class="od-section-kicker mb-3">Estados</p>
+                <div class="d-grid gap-4">
+                    {% for row in metrics.status_rows %}
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>{{ row.label }}</strong>
+                            <span class="od-muted">{{ row.count }}</span>
+                        </div>
+                        <div class="progress" role="progressbar" aria-label="{{ row.label }}" aria-valuenow="{{ row.percent }}" aria-valuemin="0" aria-valuemax="100" style="height: 0.75rem;">
+                            <div class="progress-bar bg-dark" style="width: {{ row.percent }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card od-card h-100 od-fade-up">
+            <div class="card-body p-4">
+                <p class="od-section-kicker mb-3">Prioridad</p>
+                <div class="d-grid gap-4">
+                    {% for row in metrics.priority_rows %}
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>{{ row.label }}</strong>
+                            <span class="od-muted">{{ row.count }}</span>
+                        </div>
+                        <div class="progress" role="progressbar" aria-label="Prioridad {{ row.label }}" aria-valuenow="{{ row.percent }}" aria-valuemin="0" aria-valuemax="100" style="height: 0.75rem;">
+                            <div class="progress-bar{% if row.key == 'alta' %} bg-danger{% elif row.key == 'media' %} bg-info{% else %} bg-secondary{% endif %}" style="width: {{ row.percent }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="row g-4">
+    <div class="col-lg-7">
+        <div class="card od-card h-100 od-fade-up">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                    <div>
+                        <p class="od-section-kicker mb-2">Carga por tecnico</p>
+                        <h2 class="h4 mb-0">Asignaciones activas</h2>
+                    </div>
+                    <span class="badge rounded-pill text-bg-dark px-3 py-2">{{ metrics.workload|length }}</span>
+                </div>
+
+                {% if metrics.workload %}
+                <div class="d-grid gap-3">
+                    {% for item in metrics.workload %}
+                    <div class="od-panel p-3">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <div>
+                                <strong class="d-block">{{ item.name }}</strong>
+                                <span class="small od-muted text-capitalize">{{ item.role }}</span>
+                            </div>
+                            <div class="text-end">
+                                <strong>{{ item.active }}</strong>
+                                <div class="small od-muted">activos</div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-3 flex-wrap">
+                            <span class="badge rounded-pill text-bg-dark-subtle text-dark">{{ item.assigned }} asignados</span>
+                            <span class="badge rounded-pill text-bg-danger">{{ item.high_priority }} alta prioridad</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="od-empty-state p-4">
+                    <strong class="d-block mb-2">Sin tecnicos registrados</strong>
+                    <span class="od-muted">Cuando existan usuarios con rol tecnico o admin, aqui aparecera su carga.</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card od-card h-100 od-fade-up">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                    <div>
+                        <p class="od-section-kicker mb-2">Actividad reciente</p>
+                        <h2 class="h4 mb-0">Ultimos tickets</h2>
+                    </div>
+                    <a class="btn btn-sm od-subtle-btn" href="{{ url_for('tickets.list_tickets') }}">Ver todos</a>
+                </div>
+
+                {% if metrics.recent_tickets %}
+                <div class="d-grid gap-3">
+                    {% for ticket in metrics.recent_tickets %}
+                    <a class="od-panel p-3 text-decoration-none text-reset" href="{{ url_for('tickets.ticket_detail', ticket_id=ticket.id) }}">
+                        <div class="d-flex justify-content-between gap-3 mb-2">
+                            <strong>{{ ticket.title }}</strong>
+                            <span class="small od-muted">#{{ ticket.id }}</span>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <span class="badge rounded-pill text-bg-dark-subtle text-dark">{{ ticket.status.replace("_", " ") }}</span>
+                            <span class="badge rounded-pill text-bg-light text-dark">{{ ticket.priority }}</span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="od-empty-state p-4">
+                    <strong class="d-block mb-2">Sin actividad</strong>
+                    <span class="od-muted">Los tickets mas recientes se mostraran aqui cuando se registren.</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
