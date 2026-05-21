@@ -7,7 +7,8 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
       - DATABASE_URL=postgresql://opendesk:opendesk@db:5432/opendesk
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:16-alpine
@@ -17,6 +18,12 @@ services:
       - POSTGRES_DB=opendesk
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opendesk -d opendesk"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
 volumes:
   pgdata:
