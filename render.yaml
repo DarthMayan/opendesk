@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: opendesk
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: opendesk-db
+          property: connectionString
+
+databases:
+  - name: opendesk-db
+    plan: free
+    databaseName: opendesk
+    user: opendesk
