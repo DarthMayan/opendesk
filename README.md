@@ -84,6 +84,9 @@ python run.py
 
 La aplicación queda disponible en http://localhost:5000
 
+Para una guia mas completa, consulta el
+[manual de instalacion](docs/manual-instalacion.md).
+
 ### Con Docker
 
 ```bash

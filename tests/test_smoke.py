@@ -56,6 +56,52 @@ def test_tickets_requires_login(client):
     assert "/login" in response.headers["Location"]
 
 
+def test_dashboard_requires_login(client):
+    response = client.get("/dashboard", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_dashboard_renders_metrics_for_authenticated_user(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        technician = User(name="Soporte", email="soporte-dashboard@example.com", role="tecnico")
+        technician.set_password("secret123")
+        db.session.add(technician)
+        db.session.flush()
+
+        ticket = Ticket(
+            title="Correo corporativo sin acceso",
+            description="El usuario no puede entrar al correo desde la manana.",
+            status="en_proceso",
+            priority="alta",
+            creator=creator,
+            assignee=technician,
+        )
+        db.session.add(ticket)
+        db.session.flush()
+
+        db.session.add(
+            Comment(
+                body="Se valido el estado de la cuenta y se inicio seguimiento.",
+                ticket=ticket,
+                author=technician,
+            )
+        )
+        db.session.commit()
+
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert b"Dashboard de metricas" in response.data
+    assert b"Correo corporativo sin acceso" in response.data
+    assert b"Soporte" in response.data
+    assert b"1 comentarios" in response.data
+
+
 def test_ticket_list_renders_for_authenticated_user(client, app):
     _register_and_login(client)
 
