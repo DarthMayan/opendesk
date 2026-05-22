@@ -10,10 +10,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
-            --od-primary: #0f3d3e;
-            --od-primary-deep: #112f41;
+            --od-primary: #0b4a57;
+            --od-primary-deep: #082f3a;
             --od-primary-soft: #d8ebe6;
-            --od-accent: #f2a65a;
+            --od-accent: #ff922e;
             --od-accent-soft: #ffe2c1;
             --od-surface: #f6f2ea;
             --od-surface-strong: #ece2d2;
@@ -76,7 +76,21 @@
         .navbar-brand {
             font-size: 1.25rem;
             font-weight: 700;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.02em;
+        }
+
+        .od-brand-title {
+            color: var(--od-accent);
+        }
+
+        .od-brand-logo {
+            width: 2.35rem;
+            height: 2.35rem;
+            border-radius: 0.75rem;
+            background: #fff;
+            object-fit: contain;
+            padding: 0.28rem;
+            box-shadow: 0 8px 18px rgba(8, 47, 58, 0.18);
         }
 
         .navbar-toggler {
@@ -90,6 +104,14 @@
         .od-shell {
             padding-top: 2rem;
             padding-bottom: 3rem;
+        }
+
+        .od-home-banner {
+            display: block;
+            width: 100%;
+            aspect-ratio: 3 / 1;
+            object-fit: cover;
+            object-position: center;
         }
 
         .od-card {
@@ -292,13 +314,23 @@
             .od-nav-link.active::after {
                 display: none;
             }
+
+            .od-home-banner {
+                aspect-ratio: 16 / 9;
+                object-position: left center;
+            }
         }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg od-navbar" data-testid="main-navbar">
         <div class="container">
-            <a class="navbar-brand text-white" href="{{ url_for('main.index') }}">OpenDesk</a>
+            <a class="navbar-brand d-inline-flex align-items-center gap-2 text-decoration-none" href="{{ url_for('main.index') }}">
+                {% if request.endpoint != 'main.index' %}
+                <img class="od-brand-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="OpenDesk">
+                {% endif %}
+                <span class="od-brand-title">OpenDesk</span>
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Mostrar navegacion">
                 <span class="navbar-toggler-icon"></span>
             </button>

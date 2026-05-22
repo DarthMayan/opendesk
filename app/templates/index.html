@@ -6,11 +6,11 @@
 <section class="row justify-content-center">
     <div class="col-lg-10">
         <div class="card od-card overflow-hidden">
+            <img class="od-home-banner" src="{{ url_for('static', filename='images/banner.png') }}" alt="OpenDesk centraliza soporte, usuarios y tickets">
             <div class="card-body p-4 p-md-5">
                 <div class="row align-items-center g-4">
-                    <div class="col-md-7">
+                    <div class="col-lg-8">
                         <p class="od-section-kicker mb-3">Mesa de ayuda para TI</p>
-                        <h1 class="display-5 fw-bold mb-3">Centraliza soporte, usuarios y tickets en un solo lugar.</h1>
                         <p class="lead text-secondary mb-4">
                             OpenDesk organiza incidencias, asignaciones y seguimiento operativo con una interfaz clara para usuarios y tecnicos.
                         </p>
@@ -22,25 +22,6 @@
                             <a class="btn btn-lg od-solid-btn" href="{{ url_for('auth.register') }}">Crear cuenta</a>
                             <a class="btn btn-lg btn-outline-dark rounded-pill" href="{{ url_for('auth.login') }}">Iniciar sesion</a>
                             {% endif %}
-                        </div>
-                    </div>
-                    <div class="col-md-5">
-                        <div class="rounded-4 p-4 h-100" style="background: linear-gradient(160deg, #112f41 0%, #0f3d3e 100%); color: #fff;">
-                            <h2 class="h4 mb-3">Base lista para crecer</h2>
-                            <div class="d-grid gap-3">
-                                <div class="rounded-4 p-3" style="background-color: rgba(255, 255, 255, 0.08);">
-                                    <strong>Autenticacion</strong>
-                                    <div class="small text-white-50">Registro, login y sesion persistente.</div>
-                                </div>
-                                <div class="rounded-4 p-3" style="background-color: rgba(255, 255, 255, 0.08);">
-                                    <strong>Tickets</strong>
-                                    <div class="small text-white-50">Lista y detalle ya integrados al flujo principal.</div>
-                                </div>
-                                <div class="rounded-4 p-3" style="background-color: rgba(255, 255, 255, 0.08);">
-                                    <strong>Soporte operativo</strong>
-                                    <div class="small text-white-50">Estados, prioridades y seguimiento sobre Flask.</div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
