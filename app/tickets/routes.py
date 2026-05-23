@@ -2,7 +2,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..models import Ticket, User
+from ..models import Comment, Ticket, User
 
 tickets_bp = Blueprint("tickets", __name__, url_prefix="/tickets")
 
@@ -75,6 +75,16 @@ def _available_technicians():
     return User.query.filter_by(role="tecnico").order_by(User.name.asc()).all()
 
 
+def _add_ticket_history(ticket, body, author=None):
+    db.session.add(
+        Comment(
+            body=body,
+            ticket=ticket,
+            author=author or current_user,
+        )
+    )
+
+
 @tickets_bp.route("/")
 @login_required
 def list_tickets():
@@ -104,7 +114,13 @@ def update_ticket_status(ticket_id):
         flash("No tienes permisos para realizar ese cambio de estado.", "danger")
         return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
 
+    previous_status = STATUS_META[ticket.status]["label"]
+    next_status = STATUS_META[status]["label"]
     ticket.status = status
+    _add_ticket_history(
+        ticket,
+        f"Estado actualizado: {previous_status} -> {next_status}.",
+    )
     db.session.commit()
 
     flash(f"Ticket marcado como {STATUS_META[status]['label'].lower()}.", "success")
@@ -123,8 +139,13 @@ def assign_ticket(ticket_id):
         return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
 
     assignee_id = request.form.get("assignee_id", "").strip()
+    previous_assignee = ticket.assignee.name if ticket.assignee else "Sin asignar"
     if not assignee_id:
         ticket.assignee = None
+        _add_ticket_history(
+            ticket,
+            f"Responsable actualizado: {previous_assignee} -> Sin asignar.",
+        )
         db.session.commit()
         flash("Ticket marcado como sin asignar.", "success")
         return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
@@ -141,9 +162,33 @@ def assign_ticket(ticket_id):
         return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
 
     ticket.assignee = assignee
+    _add_ticket_history(
+        ticket,
+        f"Responsable actualizado: {previous_assignee} -> {assignee.name}.",
+    )
     db.session.commit()
 
     flash(f"Ticket asignado a {assignee.name}.", "success")
+    return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+
+@tickets_bp.route("/<int:ticket_id>/comments", methods=["POST"])
+@login_required
+def add_comment(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id)
+    if ticket is None:
+        abort(404)
+
+    body = request.form.get("body", "").strip()
+    if not body:
+        flash("Escribe un comentario antes de guardarlo.", "danger")
+        return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+    comment = Comment(body=body, ticket=ticket, author=current_user)
+    db.session.add(comment)
+    db.session.commit()
+
+    flash("Comentario agregado correctamente.", "success")
     return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
 
 
@@ -186,6 +231,10 @@ def create_ticket():
             creator=current_user,
         )
         db.session.add(ticket)
+        _add_ticket_history(
+            ticket,
+            f"Ticket creado con prioridad {PRIORITY_META[ticket.priority]['label']}.",
+        )
         db.session.commit()
 
         flash("Ticket creado correctamente.", "success")
@@ -236,9 +285,21 @@ def edit_ticket(ticket_id):
                 priority_options=PRIORITY_OPTIONS,
             ), 400
 
+        changes = []
+        if ticket.title != form_data["title"]:
+            changes.append(f"titulo: {ticket.title} -> {form_data['title']}")
+        if ticket.description != form_data["description"]:
+            changes.append("descripcion actualizada")
+        if ticket.priority != form_data["priority"]:
+            changes.append(
+                f"prioridad: {PRIORITY_META[ticket.priority]['label']} -> {PRIORITY_META[form_data['priority']]['label']}"
+            )
+
         ticket.title = form_data["title"]
         ticket.description = form_data["description"]
         ticket.priority = form_data["priority"]
+        if changes:
+            _add_ticket_history(ticket, f"Ticket editado: {'; '.join(changes)}.")
         db.session.commit()
 
         flash("Ticket actualizado correctamente.", "success")

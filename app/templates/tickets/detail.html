@@ -39,6 +39,12 @@
                     <span class="badge rounded-pill text-bg-dark px-3 py-2">{{ comments|length }}</span>
                 </div>
 
+                <form method="post" action="{{ url_for('tickets.add_comment', ticket_id=ticket.id) }}" class="od-panel p-3 p-md-4 mb-4">
+                    <label for="body" class="form-label fw-semibold">Agregar comentario</label>
+                    <textarea id="body" name="body" class="form-control od-form-control mb-3" rows="4" placeholder="Escribe una actualizacion o respuesta sobre este ticket." required></textarea>
+                    <button type="submit" class="btn od-solid-btn">Agregar comentario</button>
+                </form>
+
                 {% if comments %}
                     <div class="d-grid gap-4">
                         {% for comment in comments %}

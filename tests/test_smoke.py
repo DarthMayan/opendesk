@@ -186,6 +186,7 @@ def test_authenticated_user_can_create_ticket(client, app):
     assert b"Monitor no enciende" in response.data
     assert b"El monitor principal no muestra imagen" in response.data
     assert b"Alta" in response.data
+    assert b"Ticket creado con prioridad Alta." in response.data
 
     with app.app_context():
         ticket = Ticket.query.filter_by(title="Monitor no enciende").first()
@@ -196,6 +197,7 @@ def test_authenticated_user_can_create_ticket(client, app):
         assert ticket.status == "abierto"
         assert ticket.creator.email == "emiliano@example.com"
         assert ticket.assignee is None
+        assert ticket.comments[0].body == "Ticket creado con prioridad Alta."
 
 
 def test_edit_ticket_requires_login(client):
@@ -214,6 +216,13 @@ def test_update_ticket_status_requires_login(client):
 
 def test_assign_ticket_requires_login(client):
     response = client.post("/tickets/1/assign", data={"assignee_id": "1"}, follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_add_comment_requires_login(client):
+    response = client.post("/tickets/1/comments", data={"body": "Seguimiento inicial."}, follow_redirects=False)
 
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]
@@ -257,6 +266,8 @@ def test_authenticated_user_can_edit_ticket(client, app):
     assert b"Teclado y mouse no responden" in response.data
     assert b"El teclado y el mouse USB dejaron de responder" in response.data
     assert b"Alta" in response.data
+    assert b"Ticket editado:" in response.data
+    assert b"descripcion actualizada" in response.data
 
     with app.app_context():
         updated_ticket = db.session.get(Ticket, ticket_id)
@@ -265,6 +276,10 @@ def test_authenticated_user_can_edit_ticket(client, app):
         assert updated_ticket.description == "El teclado y el mouse USB dejaron de responder en el equipo principal."
         assert updated_ticket.priority == "alta"
         assert updated_ticket.status == "abierto"
+        assert updated_ticket.comments[0].body == (
+            "Ticket editado: titulo: Teclado no responde -> Teclado y mouse no responden; "
+            "descripcion actualizada; prioridad: Media -> Alta."
+        )
 
 
 def test_non_admin_cannot_assign_ticket(client, app):
@@ -342,6 +357,7 @@ def test_admin_can_assign_ticket_to_technician(client, app):
     assert response.status_code == 200
     assert b"Ticket asignado a Soporte Nivel 1." in response.data
     assert b"Soporte Nivel 1" in response.data
+    assert b"Responsable actualizado: Sin asignar -&gt; Soporte Nivel 1." in response.data
 
     list_response = client.get("/tickets/")
 
@@ -352,6 +368,7 @@ def test_admin_can_assign_ticket_to_technician(client, app):
         updated_ticket = db.session.get(Ticket, ticket_id)
 
         assert updated_ticket.assignee_id == technician_id
+        assert updated_ticket.comments[0].body == "Responsable actualizado: Sin asignar -> Soporte Nivel 1."
 
 
 def test_admin_can_unassign_ticket(client, app):
@@ -385,11 +402,82 @@ def test_admin_can_unassign_ticket(client, app):
     assert response.status_code == 200
     assert b"Ticket marcado como sin asignar." in response.data
     assert b"Sin asignar" in response.data
+    assert b"Responsable actualizado: Soporte Nivel 2 -&gt; Sin asignar." in response.data
 
     with app.app_context():
         updated_ticket = db.session.get(Ticket, ticket_id)
 
         assert updated_ticket.assignee is None
+        assert updated_ticket.comments[0].body == "Responsable actualizado: Soporte Nivel 2 -> Sin asignar."
+
+
+def test_authenticated_user_can_add_comment_to_ticket(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        ticket = Ticket(
+            title="Seguimiento de correo",
+            description="El usuario requiere una actualizacion sobre su acceso al correo.",
+            status="abierto",
+            priority="media",
+            creator=creator,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    form_response = client.get(f"/tickets/{ticket_id}")
+
+    assert form_response.status_code == 200
+    assert b"Agregar comentario" in form_response.data
+
+    response = client.post(
+        f"/tickets/{ticket_id}/comments",
+        data={"body": "Se reviso la cuenta y se escalo al equipo de identidad."},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Comentario agregado correctamente." in response.data
+    assert b"Se reviso la cuenta y se escalo al equipo de identidad." in response.data
+    assert b"Emiliano" in response.data
+
+    with app.app_context():
+        comment = Comment.query.filter_by(ticket_id=ticket_id).first()
+
+        assert comment is not None
+        assert comment.body == "Se reviso la cuenta y se escalo al equipo de identidad."
+        assert comment.author.email == "emiliano@example.com"
+
+
+def test_add_comment_requires_body(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        ticket = Ticket(
+            title="Comentario vacio",
+            description="El sistema no debe guardar comentarios vacios.",
+            status="abierto",
+            priority="baja",
+            creator=creator,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    response = client.post(
+        f"/tickets/{ticket_id}/comments",
+        data={"body": "   "},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Escribe un comentario antes de guardarlo." in response.data
+
+    with app.app_context():
+        assert Comment.query.filter_by(ticket_id=ticket_id).count() == 0
 
 
 def test_technician_can_mark_ticket_in_progress_and_resolved(client, app):
@@ -433,6 +521,7 @@ def test_technician_can_mark_ticket_in_progress_and_resolved(client, app):
     assert progress_response.status_code == 200
     assert b"Ticket marcado como en proceso." in progress_response.data
     assert b"En proceso" in progress_response.data
+    assert b"Estado actualizado: Abierto -&gt; En proceso." in progress_response.data
 
     resolved_response = client.post(
         f"/tickets/{ticket_id}/status",
@@ -443,11 +532,16 @@ def test_technician_can_mark_ticket_in_progress_and_resolved(client, app):
     assert resolved_response.status_code == 200
     assert b"Ticket marcado como resuelto." in resolved_response.data
     assert b"Resuelto" in resolved_response.data
+    assert b"Estado actualizado: En proceso -&gt; Resuelto." in resolved_response.data
 
     with app.app_context():
         updated_ticket = db.session.get(Ticket, ticket_id)
 
         assert updated_ticket.status == "resuelto"
+        assert [comment.body for comment in updated_ticket.comments] == [
+            "Estado actualizado: Abierto -> En proceso.",
+            "Estado actualizado: En proceso -> Resuelto.",
+        ]
 
 
 def test_creator_can_close_resolved_ticket(client, app):
