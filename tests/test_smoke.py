@@ -56,6 +56,13 @@ def test_tickets_requires_login(client):
     assert "/login" in response.headers["Location"]
 
 
+def test_create_ticket_requires_login(client):
+    response = client.get("/tickets/new", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
 def test_dashboard_requires_login(client):
     response = client.get("/dashboard", follow_redirects=False)
 
@@ -125,6 +132,42 @@ def test_ticket_list_renders_for_authenticated_user(client, app):
     assert b"Laptop sin acceso a VPN" in response.data
     assert b"Alta prioridad" in response.data
     assert b"Ver detalle" in response.data
+
+
+def test_authenticated_user_can_create_ticket(client, app):
+    _register_and_login(client)
+
+    form_response = client.get("/tickets/new")
+
+    assert form_response.status_code == 200
+    assert b"Datos del ticket" in form_response.data
+    assert b"Crear ticket" in form_response.data
+
+    response = client.post(
+        "/tickets/new",
+        data={
+            "title": "Monitor no enciende",
+            "description": "El monitor principal no muestra imagen desde esta manana.",
+            "priority": "alta",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Ticket creado correctamente." in response.data
+    assert b"Monitor no enciende" in response.data
+    assert b"El monitor principal no muestra imagen" in response.data
+    assert b"Alta" in response.data
+
+    with app.app_context():
+        ticket = Ticket.query.filter_by(title="Monitor no enciende").first()
+
+        assert ticket is not None
+        assert ticket.description == "El monitor principal no muestra imagen desde esta manana."
+        assert ticket.priority == "alta"
+        assert ticket.status == "abierto"
+        assert ticket.creator.email == "emiliano@example.com"
+        assert ticket.assignee is None
 
 
 def test_ticket_detail_renders_comments(client, app):

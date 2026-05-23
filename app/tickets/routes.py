@@ -1,5 +1,5 @@
-from flask import Blueprint, abort, render_template
-from flask_login import login_required
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 
 from ..extensions import db
 from ..models import Ticket
@@ -18,6 +18,12 @@ PRIORITY_META = {
     "media": {"label": "Media", "class": "text-bg-info"},
     "alta": {"label": "Alta", "class": "text-bg-danger"},
 }
+
+PRIORITY_OPTIONS = [
+    ("baja", "Baja", "Solicitud simple o no urgente."),
+    ("media", "Media", "Problema que afecta el trabajo normal."),
+    ("alta", "Alta", "Incidencia critica que requiere atencion inmediata."),
+]
 
 
 def _ticket_stats(tickets):
@@ -39,6 +45,57 @@ def list_tickets():
         stats=_ticket_stats(tickets),
         status_meta=STATUS_META,
         priority_meta=PRIORITY_META,
+    )
+
+
+@tickets_bp.route("/new", methods=["GET", "POST"])
+@login_required
+def create_ticket():
+    form_data = {
+        "title": "",
+        "description": "",
+        "priority": "media",
+    }
+
+    if request.method == "POST":
+        form_data = {
+            "title": request.form.get("title", "").strip(),
+            "description": request.form.get("description", "").strip(),
+            "priority": request.form.get("priority", "media").strip(),
+        }
+
+        if not form_data["title"] or not form_data["description"]:
+            flash("Completa el titulo y la descripcion del ticket.", "danger")
+            return render_template(
+                "tickets/new.html",
+                form_data=form_data,
+                priority_options=PRIORITY_OPTIONS,
+            ), 400
+
+        if form_data["priority"] not in PRIORITY_META:
+            flash("Selecciona una prioridad valida.", "danger")
+            return render_template(
+                "tickets/new.html",
+                form_data=form_data,
+                priority_options=PRIORITY_OPTIONS,
+            ), 400
+
+        ticket = Ticket(
+            title=form_data["title"],
+            description=form_data["description"],
+            priority=form_data["priority"],
+            creator=current_user,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+
+        flash("Ticket creado correctamente.", "success")
+        return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+    return render_template(
+        "tickets/new.html",
+        form_data=form_data,
+        priority_options=PRIORITY_OPTIONS,
     )
 
 

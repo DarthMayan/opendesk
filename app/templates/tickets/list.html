@@ -12,6 +12,9 @@
                 <p class="od-lead mb-0">
                     Revisa prioridad, estado, responsables y contexto general de cada solicitud desde una sola vista.
                 </p>
+                <div class="mt-4">
+                    <a class="btn btn-lg od-solid-btn" href="{{ url_for('tickets.create_ticket') }}">Nuevo ticket</a>
+                </div>
             </div>
         </div>
     </div>
@@ -124,6 +127,7 @@
         <p class="od-muted mb-0">
             Cuando el equipo agregue tickets al sistema, aqui apareceran con prioridad, estado, responsables y acceso al detalle.
         </p>
+        <a class="btn btn-lg od-solid-btn mt-4" href="{{ url_for('tickets.create_ticket') }}">Crear primer ticket</a>
     </div>
     {% endif %}
 </section>
