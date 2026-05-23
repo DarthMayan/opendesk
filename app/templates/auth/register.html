@@ -21,12 +21,12 @@
                                 <span class="small od-muted">Reporta incidencias y sigue su progreso sin perder contexto.</span>
                             </div>
                             <div class="od-panel p-3">
-                                <strong class="d-block mb-1">Para soporte</strong>
-                                <span class="small od-muted">Administra tickets, responsables y comentarios desde el mismo flujo.</span>
+                                <strong class="d-block mb-1">Para tecnicos</strong>
+                                <span class="small od-muted">Atiende solicitudes y actualiza el estado de los tickets.</span>
                             </div>
                             <div class="od-panel p-3">
-                                <strong class="d-block mb-1">Para el proyecto</strong>
-                                <span class="small od-muted">Esta base visual deja lista la integracion de acciones futuras.</span>
+                                <strong class="d-block mb-1">Para administradores</strong>
+                                <span class="small od-muted">Supervisa la operacion y gestiona los cambios de estado.</span>
                             </div>
                         </div>
                     </div>
@@ -41,17 +41,25 @@
                                 <p class="od-section-kicker mb-2">Registro</p>
                                 <h2 class="h2 fw-bold mb-0">Configura tu cuenta</h2>
                             </div>
-                            <div class="od-panel px-3 py-2 small od-muted">Campos simples y listos para futuras validaciones</div>
+                            <div class="od-panel px-3 py-2 small od-muted">Selecciona el perfil que usaras en OpenDesk</div>
                         </div>
 
                         <form method="post" class="row g-3">
                             <div class="col-12">
                                 <label for="name" class="form-label fw-semibold">Nombre</label>
-                                <input id="name" name="name" type="text" class="form-control form-control-lg od-form-control" placeholder="Tu nombre" required>
+                                <input id="name" name="name" type="text" class="form-control form-control-lg od-form-control" value="{{ form_data.name }}" placeholder="Tu nombre" required>
                             </div>
                             <div class="col-12">
                                 <label for="email" class="form-label fw-semibold">Correo</label>
-                                <input id="email" name="email" type="email" class="form-control form-control-lg od-form-control" placeholder="tu@correo.com" required>
+                                <input id="email" name="email" type="email" class="form-control form-control-lg od-form-control" value="{{ form_data.email }}" placeholder="tu@correo.com" required>
+                            </div>
+                            <div class="col-12">
+                                <label for="role" class="form-label fw-semibold">Perfil</label>
+                                <select id="role" name="role" class="form-select form-select-lg od-form-control" required>
+                                    {% for value, label, help_text in role_options %}
+                                    <option value="{{ value }}"{% if form_data.role == value %} selected{% endif %}>{{ label }} - {{ help_text }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                             <div class="col-md-6">
                                 <label for="password" class="form-label fw-semibold">Contrasena</label>

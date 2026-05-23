@@ -13,6 +13,13 @@ STATUS_META = {
     "cerrado": {"label": "Cerrado", "class": "text-bg-secondary"},
 }
 
+STATUS_ACTION_LABELS = {
+    "abierto": "Reabrir ticket",
+    "en_proceso": "Marcar en proceso",
+    "resuelto": "Marcar resuelto",
+    "cerrado": "Cerrar ticket",
+}
+
 PRIORITY_META = {
     "baja": {"label": "Baja", "class": "text-bg-light"},
     "media": {"label": "Media", "class": "text-bg-info"},
@@ -35,6 +42,34 @@ def _ticket_stats(tickets):
     }
 
 
+def _allowed_statuses(ticket, user):
+    if user.role == "admin":
+        return [status for status in STATUS_META if status != ticket.status]
+
+    if user.role == "tecnico" and ticket.status != "cerrado":
+        return [
+            status
+            for status in ("en_proceso", "resuelto")
+            if status != ticket.status
+        ]
+
+    if ticket.creator_id == user.id and ticket.status == "resuelto":
+        return ["cerrado"]
+
+    return []
+
+
+def _status_actions(ticket, user):
+    return [
+        {
+            "key": status,
+            "label": STATUS_ACTION_LABELS[status],
+            "badge": STATUS_META[status]["label"],
+        }
+        for status in _allowed_statuses(ticket, user)
+    ]
+
+
 @tickets_bp.route("/")
 @login_required
 def list_tickets():
@@ -46,6 +81,29 @@ def list_tickets():
         status_meta=STATUS_META,
         priority_meta=PRIORITY_META,
     )
+
+
+@tickets_bp.route("/<int:ticket_id>/status", methods=["POST"])
+@login_required
+def update_ticket_status(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id)
+    if ticket is None:
+        abort(404)
+
+    status = request.form.get("status", "").strip()
+    if status not in STATUS_META:
+        flash("Selecciona un estado valido.", "danger")
+        return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+    if status not in _allowed_statuses(ticket, current_user):
+        flash("No tienes permisos para realizar ese cambio de estado.", "danger")
+        return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+    ticket.status = status
+    db.session.commit()
+
+    flash(f"Ticket marcado como {STATUS_META[status]['label'].lower()}.", "success")
+    return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
 
 
 @tickets_bp.route("/new", methods=["GET", "POST"])
@@ -166,5 +224,6 @@ def ticket_detail(ticket_id):
         ticket=ticket,
         comments=comments,
         status_meta=STATUS_META,
+        status_actions=_status_actions(ticket, current_user),
         priority_meta=PRIORITY_META,
     )

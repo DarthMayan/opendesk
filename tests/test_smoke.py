@@ -2,14 +2,26 @@ from app.extensions import db
 from app.models import Comment, Ticket, User
 
 
-def _register_and_login(client, name="Emiliano", email="emiliano@example.com"):
+def _register_and_login(client, name="Emiliano", email="emiliano@example.com", role="usuario"):
     return client.post(
         "/register",
         data={
             "name": name,
             "email": email,
+            "role": role,
             "password": "secret123",
             "confirm_password": "secret123",
+        },
+        follow_redirects=True,
+    )
+
+
+def _login(client, email, password="secret123"):
+    return client.post(
+        "/login",
+        data={
+            "email": email,
+            "password": password,
         },
         follow_redirects=True,
     )
@@ -46,7 +58,23 @@ def test_register_logs_user_in_and_updates_navbar(client):
     assert response.status_code == 200
     assert b"Cuenta creada correctamente." in response.data
     assert b"Emiliano" in response.data
+    assert b"usuario" in response.data
     assert b"Cerrar sesion" in response.data
+
+
+def test_register_can_create_admin_user(client, app):
+    response = _register_and_login(client, name="Admin", email="admin-register@example.com", role="admin")
+
+    assert response.status_code == 200
+    assert b"Cuenta creada correctamente." in response.data
+    assert b"Admin" in response.data
+    assert b"admin" in response.data
+
+    with app.app_context():
+        user = User.query.filter_by(email="admin-register@example.com").first()
+
+        assert user is not None
+        assert user.role == "admin"
 
 
 def test_tickets_requires_login(client):
@@ -177,6 +205,13 @@ def test_edit_ticket_requires_login(client):
     assert "/login" in response.headers["Location"]
 
 
+def test_update_ticket_status_requires_login(client):
+    response = client.post("/tickets/1/status", data={"status": "en_proceso"}, follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
 def test_authenticated_user_can_edit_ticket(client, app):
     _register_and_login(client)
 
@@ -222,6 +257,147 @@ def test_authenticated_user_can_edit_ticket(client, app):
         assert updated_ticket.title == "Teclado y mouse no responden"
         assert updated_ticket.description == "El teclado y el mouse USB dejaron de responder en el equipo principal."
         assert updated_ticket.priority == "alta"
+        assert updated_ticket.status == "abierto"
+
+
+def test_technician_can_mark_ticket_in_progress_and_resolved(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        technician = User(name="Tecnico", email="tecnico@example.com", role="tecnico")
+        technician.set_password("secret123")
+        db.session.add(technician)
+        db.session.flush()
+
+        ticket = Ticket(
+            title="VPN intermitente",
+            description="La conexion VPN se desconecta cada pocos minutos.",
+            status="abierto",
+            priority="alta",
+            creator=creator,
+            assignee=technician,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    client.get("/logout")
+    _login(client, "tecnico@example.com")
+
+    detail_response = client.get(f"/tickets/{ticket_id}")
+
+    assert detail_response.status_code == 200
+    assert b"Cambiar estado" in detail_response.data
+    assert b"Marcar en proceso" in detail_response.data
+    assert b"Marcar resuelto" in detail_response.data
+
+    progress_response = client.post(
+        f"/tickets/{ticket_id}/status",
+        data={"status": "en_proceso"},
+        follow_redirects=True,
+    )
+
+    assert progress_response.status_code == 200
+    assert b"Ticket marcado como en proceso." in progress_response.data
+    assert b"En proceso" in progress_response.data
+
+    resolved_response = client.post(
+        f"/tickets/{ticket_id}/status",
+        data={"status": "resuelto"},
+        follow_redirects=True,
+    )
+
+    assert resolved_response.status_code == 200
+    assert b"Ticket marcado como resuelto." in resolved_response.data
+    assert b"Resuelto" in resolved_response.data
+
+    with app.app_context():
+        updated_ticket = db.session.get(Ticket, ticket_id)
+
+        assert updated_ticket.status == "resuelto"
+
+
+def test_creator_can_close_resolved_ticket(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        ticket = Ticket(
+            title="Solicitud de acceso atendida",
+            description="El acceso al sistema interno ya fue habilitado.",
+            status="resuelto",
+            priority="media",
+            creator=creator,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    detail_response = client.get(f"/tickets/{ticket_id}")
+
+    assert detail_response.status_code == 200
+    assert b"Cerrar ticket" in detail_response.data
+
+    response = client.post(
+        f"/tickets/{ticket_id}/status",
+        data={"status": "cerrado"},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Ticket marcado como cerrado." in response.data
+    assert b"Cerrado" in response.data
+
+    with app.app_context():
+        updated_ticket = db.session.get(Ticket, ticket_id)
+
+        assert updated_ticket.status == "cerrado"
+
+
+def test_admin_can_change_ticket_to_any_status(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        admin = User(name="Admin", email="admin@example.com", role="admin")
+        admin.set_password("secret123")
+        db.session.add(admin)
+        db.session.flush()
+
+        ticket = Ticket(
+            title="Equipo cerrado por error",
+            description="El ticket necesita volver a seguimiento.",
+            status="cerrado",
+            priority="baja",
+            creator=creator,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    client.get("/logout")
+    _login(client, "admin@example.com")
+
+    detail_response = client.get(f"/tickets/{ticket_id}")
+
+    assert detail_response.status_code == 200
+    assert b"Reabrir ticket" in detail_response.data
+    assert b"Marcar en proceso" in detail_response.data
+    assert b"Marcar resuelto" in detail_response.data
+
+    response = client.post(
+        f"/tickets/{ticket_id}/status",
+        data={"status": "abierto"},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Ticket marcado como abierto." in response.data
+
+    with app.app_context():
+        updated_ticket = db.session.get(Ticket, ticket_id)
+
         assert updated_ticket.status == "abierto"
 
 

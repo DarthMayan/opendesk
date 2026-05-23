@@ -94,6 +94,24 @@
                 </div>
             </div>
         </div>
+
+        {% if status_actions %}
+        <div class="card od-card od-fade-up">
+            <div class="card-body p-4">
+                <p class="od-section-kicker mb-3">Cambiar estado</p>
+                <div class="d-grid gap-2">
+                    {% for action in status_actions %}
+                    <form method="post" action="{{ url_for('tickets.update_ticket_status', ticket_id=ticket.id) }}">
+                        <input type="hidden" name="status" value="{{ action.key }}">
+                        <button type="submit" class="btn od-subtle-btn w-100 text-start">
+                            {{ action.label }}
+                        </button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </section>
 {% endblock %}

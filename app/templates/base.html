@@ -345,6 +345,7 @@
                 <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
                     {% if current_user.is_authenticated %}
                     <span class="od-chip">{{ current_user.name }}</span>
+                    <span class="od-chip text-capitalize">{{ current_user.role }}</span>
                     <a class="btn btn-sm od-outline-btn" href="{{ url_for('auth.logout') }}">Cerrar sesion</a>
                     {% else %}
                     <a class="btn btn-sm od-outline-btn" href="{{ url_for('auth.login') }}">Iniciar sesion</a>
