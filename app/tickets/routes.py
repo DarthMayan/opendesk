@@ -2,7 +2,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..models import Ticket
+from ..models import Ticket, User
 
 tickets_bp = Blueprint("tickets", __name__, url_prefix="/tickets")
 
@@ -39,6 +39,7 @@ def _ticket_stats(tickets):
         "open": sum(ticket.status == "abierto" for ticket in tickets),
         "in_progress": sum(ticket.status == "en_proceso" for ticket in tickets),
         "high_priority": sum(ticket.priority == "alta" for ticket in tickets),
+        "unassigned": sum(ticket.assignee_id is None for ticket in tickets),
     }
 
 
@@ -68,6 +69,10 @@ def _status_actions(ticket, user):
         }
         for status in _allowed_statuses(ticket, user)
     ]
+
+
+def _available_technicians():
+    return User.query.filter_by(role="tecnico").order_by(User.name.asc()).all()
 
 
 @tickets_bp.route("/")
@@ -103,6 +108,42 @@ def update_ticket_status(ticket_id):
     db.session.commit()
 
     flash(f"Ticket marcado como {STATUS_META[status]['label'].lower()}.", "success")
+    return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+
+@tickets_bp.route("/<int:ticket_id>/assign", methods=["POST"])
+@login_required
+def assign_ticket(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id)
+    if ticket is None:
+        abort(404)
+
+    if current_user.role != "admin":
+        flash("Solo un administrador puede asignar responsables.", "danger")
+        return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+    assignee_id = request.form.get("assignee_id", "").strip()
+    if not assignee_id:
+        ticket.assignee = None
+        db.session.commit()
+        flash("Ticket marcado como sin asignar.", "success")
+        return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+    try:
+        assignee_id = int(assignee_id)
+    except ValueError:
+        flash("Selecciona un tecnico valido.", "danger")
+        return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+    assignee = db.session.get(User, assignee_id)
+    if assignee is None or assignee.role != "tecnico":
+        flash("Selecciona un tecnico valido.", "danger")
+        return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+    ticket.assignee = assignee
+    db.session.commit()
+
+    flash(f"Ticket asignado a {assignee.name}.", "success")
     return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
 
 
@@ -225,5 +266,6 @@ def ticket_detail(ticket_id):
         comments=comments,
         status_meta=STATUS_META,
         status_actions=_status_actions(ticket, current_user),
+        technicians=_available_technicians() if current_user.role == "admin" else [],
         priority_meta=PRIORITY_META,
     )

@@ -95,6 +95,33 @@
             </div>
         </div>
 
+        {% if current_user.role == "admin" %}
+        <div class="card od-card mb-4 od-fade-up">
+            <div class="card-body p-4">
+                <p class="od-section-kicker mb-3">Responsable</p>
+                <form method="post" action="{{ url_for('tickets.assign_ticket', ticket_id=ticket.id) }}" class="d-grid gap-3">
+                    <div>
+                        <label for="assignee_id" class="form-label fw-semibold">Asignar a</label>
+                        <select id="assignee_id" name="assignee_id" class="form-select od-form-control">
+                            <option value="">Sin asignar</option>
+                            {% for technician in technicians %}
+                            <option value="{{ technician.id }}"{% if ticket.assignee_id == technician.id %} selected{% endif %}>{{ technician.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% if technicians %}
+                    <button type="submit" class="btn od-solid-btn">Guardar responsable</button>
+                    {% else %}
+                    <div class="od-empty-state p-3">
+                        <span class="od-muted">No hay tecnicos registrados para asignar.</span>
+                    </div>
+                    <button type="submit" class="btn od-subtle-btn">Dejar sin asignar</button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
         {% if status_actions %}
         <div class="card od-card od-fade-up">
             <div class="card-body p-4">

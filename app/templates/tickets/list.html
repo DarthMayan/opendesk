@@ -30,7 +30,8 @@
                 </div>
                 <div class="d-flex gap-2 mt-4 flex-wrap">
                     <span class="od-chip">Tickets {{ stats.total }}</span>
-                    <span class="od-chip">Prioridad alta {{ stats.high_priority }}</span>
+                    <span class="od-chip">Alta prioridad {{ stats.high_priority }}</span>
+                    <span class="od-chip">Sin asignar {{ stats.unassigned }}</span>
                 </div>
             </div>
         </div>
@@ -68,9 +69,9 @@
     <div class="col-6 col-lg-3">
         <div class="card od-card od-stat h-100">
             <div class="card-body p-4">
-                <div class="od-section-kicker mb-2">Alta prioridad</div>
-                <div class="display-6 fw-bold">{{ stats.high_priority }}</div>
-                <div class="small od-muted mt-2">Requieren atencion inmediata</div>
+                <div class="od-section-kicker mb-2">Sin asignar</div>
+                <div class="display-6 fw-bold">{{ stats.unassigned }}</div>
+                <div class="small od-muted mt-2">Pendientes de responsable</div>
             </div>
         </div>
     </div>

@@ -212,6 +212,13 @@ def test_update_ticket_status_requires_login(client):
     assert "/login" in response.headers["Location"]
 
 
+def test_assign_ticket_requires_login(client):
+    response = client.post("/tickets/1/assign", data={"assignee_id": "1"}, follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
 def test_authenticated_user_can_edit_ticket(client, app):
     _register_and_login(client)
 
@@ -258,6 +265,131 @@ def test_authenticated_user_can_edit_ticket(client, app):
         assert updated_ticket.description == "El teclado y el mouse USB dejaron de responder en el equipo principal."
         assert updated_ticket.priority == "alta"
         assert updated_ticket.status == "abierto"
+
+
+def test_non_admin_cannot_assign_ticket(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        technician = User(name="Tecnico", email="tecnico-no-admin@example.com", role="tecnico")
+        technician.set_password("secret123")
+        db.session.add(technician)
+        db.session.flush()
+
+        ticket = Ticket(
+            title="Sin responsable inicial",
+            description="El ticket aun no debe poder asignarse por un usuario comun.",
+            status="abierto",
+            priority="media",
+            creator=creator,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+        technician_id = technician.id
+
+    response = client.post(
+        f"/tickets/{ticket_id}/assign",
+        data={"assignee_id": str(technician_id)},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Solo un administrador puede asignar responsables." in response.data
+
+    with app.app_context():
+        ticket = db.session.get(Ticket, ticket_id)
+
+        assert ticket.assignee is None
+
+
+def test_admin_can_assign_ticket_to_technician(client, app):
+    _register_and_login(client, name="Admin", email="admin-assign@example.com", role="admin")
+
+    with app.app_context():
+        admin = User.query.filter_by(email="admin-assign@example.com").first()
+        technician = User(name="Soporte Nivel 1", email="soporte-n1@example.com", role="tecnico")
+        technician.set_password("secret123")
+        db.session.add(technician)
+        db.session.flush()
+
+        ticket = Ticket(
+            title="Computadora sin internet",
+            description="El equipo de recepcion no tiene conexion a la red.",
+            status="abierto",
+            priority="alta",
+            creator=admin,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+        technician_id = technician.id
+
+    detail_response = client.get(f"/tickets/{ticket_id}")
+
+    assert detail_response.status_code == 200
+    assert b"Responsable" in detail_response.data
+    assert b"Soporte Nivel 1" in detail_response.data
+    assert b"Guardar responsable" in detail_response.data
+
+    response = client.post(
+        f"/tickets/{ticket_id}/assign",
+        data={"assignee_id": str(technician_id)},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Ticket asignado a Soporte Nivel 1." in response.data
+    assert b"Soporte Nivel 1" in response.data
+
+    list_response = client.get("/tickets/")
+
+    assert list_response.status_code == 200
+    assert b"Sin asignar 0" in list_response.data
+
+    with app.app_context():
+        updated_ticket = db.session.get(Ticket, ticket_id)
+
+        assert updated_ticket.assignee_id == technician_id
+
+
+def test_admin_can_unassign_ticket(client, app):
+    _register_and_login(client, name="Admin", email="admin-unassign@example.com", role="admin")
+
+    with app.app_context():
+        admin = User.query.filter_by(email="admin-unassign@example.com").first()
+        technician = User(name="Soporte Nivel 2", email="soporte-n2@example.com", role="tecnico")
+        technician.set_password("secret123")
+        db.session.add(technician)
+        db.session.flush()
+
+        ticket = Ticket(
+            title="Cambio de responsable",
+            description="El ticket debe quedar pendiente de reasignacion.",
+            status="en_proceso",
+            priority="media",
+            creator=admin,
+            assignee=technician,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    response = client.post(
+        f"/tickets/{ticket_id}/assign",
+        data={"assignee_id": ""},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Ticket marcado como sin asignar." in response.data
+    assert b"Sin asignar" in response.data
+
+    with app.app_context():
+        updated_ticket = db.session.get(Ticket, ticket_id)
+
+        assert updated_ticket.assignee is None
 
 
 def test_technician_can_mark_ticket_in_progress_and_resolved(client, app):
