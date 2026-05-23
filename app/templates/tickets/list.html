@@ -25,7 +25,7 @@
                     <p class="text-uppercase small text-white-50 mb-2">Sesion activa</p>
                     <h2 class="h4 mb-2">{{ current_user.name }}</h2>
                     <p class="mb-0 text-white-50">
-                        Usa esta vista como base del tablero de soporte del proyecto.
+                        Revisa las solicitudes activas y da seguimiento a las incidencias registradas.
                     </p>
                 </div>
                 <div class="d-flex gap-2 mt-4 flex-wrap">
@@ -113,8 +113,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="d-flex align-items-xl-center">
+                    <div class="d-flex flex-column justify-content-xl-center gap-2">
                         <a class="btn od-solid-btn px-4" href="{{ url_for('tickets.ticket_detail', ticket_id=ticket.id) }}">Ver detalle</a>
+                        <a class="btn od-subtle-btn px-4" href="{{ url_for('tickets.edit_ticket', ticket_id=ticket.id) }}">Editar</a>
                     </div>
                 </div>
             </div>
@@ -123,9 +124,9 @@
     {% else %}
     <div class="od-empty-state p-5 text-center od-fade-up">
         <p class="od-section-kicker mb-2">Sin tickets todavia</p>
-        <h2 class="h3 mb-3">La lista esta lista para mostrar incidencias reales</h2>
+        <h2 class="h3 mb-3">Aun no hay incidencias registradas</h2>
         <p class="od-muted mb-0">
-            Cuando el equipo agregue tickets al sistema, aqui apareceran con prioridad, estado, responsables y acceso al detalle.
+            Crea el primer ticket para empezar a dar seguimiento al soporte.
         </p>
         <a class="btn btn-lg od-solid-btn mt-4" href="{{ url_for('tickets.create_ticket') }}">Crear primer ticket</a>
     </div>

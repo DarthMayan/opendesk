@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Editar ticket #{{ ticket.id }} | OpenDesk{% endblock %}
+
+{% block content %}
+<section class="row justify-content-center od-fade-up">
+    <div class="col-xl-11">
+        <div class="row g-4 align-items-stretch">
+            <div class="col-lg-5">
+                <div class="card od-card od-glass-dark h-100">
+                    <div class="card-body p-4 p-md-5 d-flex flex-column justify-content-between">
+                        <div>
+                            <p class="text-uppercase small text-white-50 fw-semibold mb-3">Editar ticket #{{ ticket.id }}</p>
+                            <h1 class="display-6 fw-bold mb-3">Actualiza la informacion del ticket</h1>
+                            <p class="mb-0 text-white-50">
+                                Ajusta el titulo, la descripcion o la prioridad cuando haya nueva informacion sobre la incidencia.
+                            </p>
+                        </div>
+
+                        <div class="d-grid gap-3 mt-4">
+                            <div class="rounded-4 p-3" style="background-color: rgba(255, 255, 255, 0.08);">
+                                <strong class="d-block mb-1">Estado actual</strong>
+                                <span class="small text-white-50">{{ ticket.status.replace("_", " ") }}</span>
+                            </div>
+                            <div class="rounded-4 p-3" style="background-color: rgba(255, 255, 255, 0.08);">
+                                <strong class="d-block mb-1">Creado por</strong>
+                                <span class="small text-white-50">{{ ticket.creator.name }}</span>
+                            </div>
+                            <div class="rounded-4 p-3" style="background-color: rgba(255, 255, 255, 0.08);">
+                                <strong class="d-block mb-1">Asignado a</strong>
+                                <span class="small text-white-50">{{ ticket.assignee.name if ticket.assignee else "Sin asignar" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <div class="card od-card h-100">
+                    <div class="card-body p-4 p-md-5">
+                        <div class="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-end mb-4">
+                            <div>
+                                <p class="od-section-kicker mb-2">Edicion</p>
+                                <h2 class="h2 fw-bold mb-0">Datos principales</h2>
+                            </div>
+                            <a class="btn od-subtle-btn" href="{{ url_for('tickets.ticket_detail', ticket_id=ticket.id) }}">Volver al detalle</a>
+                        </div>
+
+                        <form method="post" class="d-grid gap-4">
+                            <div>
+                                <label for="title" class="form-label fw-semibold">Titulo</label>
+                                <input id="title" name="title" type="text" class="form-control form-control-lg od-form-control" value="{{ form_data.title }}" maxlength="200" required>
+                            </div>
+
+                            <div>
+                                <label for="description" class="form-label fw-semibold">Descripcion</label>
+                                <textarea id="description" name="description" class="form-control od-form-control" rows="7" required>{{ form_data.description }}</textarea>
+                            </div>
+
+                            <div>
+                                <label for="priority" class="form-label fw-semibold">Prioridad</label>
+                                <select id="priority" name="priority" class="form-select form-select-lg od-form-control" required>
+                                    {% for value, label, help_text in priority_options %}
+                                    <option value="{{ value }}"{% if form_data.priority == value %} selected{% endif %}>{{ label }} - {{ help_text }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="d-flex flex-column flex-sm-row gap-3 pt-2">
+                                <button type="submit" class="btn btn-lg od-solid-btn">Guardar cambios</button>
+                                <a class="btn btn-lg od-subtle-btn" href="{{ url_for('tickets.ticket_detail', ticket_id=ticket.id) }}">Cancelar</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

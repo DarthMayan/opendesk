@@ -99,6 +99,60 @@ def create_ticket():
     )
 
 
+@tickets_bp.route("/<int:ticket_id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_ticket(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id)
+    if ticket is None:
+        abort(404)
+
+    form_data = {
+        "title": ticket.title,
+        "description": ticket.description,
+        "priority": ticket.priority,
+    }
+
+    if request.method == "POST":
+        form_data = {
+            "title": request.form.get("title", "").strip(),
+            "description": request.form.get("description", "").strip(),
+            "priority": request.form.get("priority", "media").strip(),
+        }
+
+        if not form_data["title"] or not form_data["description"]:
+            flash("Completa el titulo y la descripcion del ticket.", "danger")
+            return render_template(
+                "tickets/edit.html",
+                ticket=ticket,
+                form_data=form_data,
+                priority_options=PRIORITY_OPTIONS,
+            ), 400
+
+        if form_data["priority"] not in PRIORITY_META:
+            flash("Selecciona una prioridad valida.", "danger")
+            return render_template(
+                "tickets/edit.html",
+                ticket=ticket,
+                form_data=form_data,
+                priority_options=PRIORITY_OPTIONS,
+            ), 400
+
+        ticket.title = form_data["title"]
+        ticket.description = form_data["description"]
+        ticket.priority = form_data["priority"]
+        db.session.commit()
+
+        flash("Ticket actualizado correctamente.", "success")
+        return redirect(url_for("tickets.ticket_detail", ticket_id=ticket.id))
+
+    return render_template(
+        "tickets/edit.html",
+        ticket=ticket,
+        form_data=form_data,
+        priority_options=PRIORITY_OPTIONS,
+    )
+
+
 @tickets_bp.route("/<int:ticket_id>")
 @login_required
 def ticket_detail(ticket_id):

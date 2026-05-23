@@ -12,9 +12,12 @@
             <span class="badge {{ priority_meta[ticket.priority].class }}">{{ priority_meta[ticket.priority].label }}</span>
         </div>
         <h1 class="display-6 fw-bold mb-2">{{ ticket.title }}</h1>
-        <p class="od-lead mb-0">Vista lista para soporte, historial y futuras acciones del flujo operativo.</p>
+        <p class="od-lead mb-0">Consulta la descripcion, responsable, fechas e historial de seguimiento de esta solicitud.</p>
     </div>
-    <a class="btn od-subtle-btn px-4" href="{{ url_for('tickets.list_tickets') }}">Volver a tickets</a>
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        <a class="btn od-solid-btn px-4" href="{{ url_for('tickets.edit_ticket', ticket_id=ticket.id) }}">Editar ticket</a>
+        <a class="btn od-subtle-btn px-4" href="{{ url_for('tickets.list_tickets') }}">Volver a tickets</a>
+    </div>
 </section>
 
 <section class="row g-4">
@@ -56,7 +59,7 @@
                 {% else %}
                 <div class="od-empty-state p-4">
                     <strong class="d-block mb-2">Sin comentarios por ahora</strong>
-                    <span class="od-muted">Este detalle ya tiene la estructura lista para mostrar historial de soporte cuando se capture.</span>
+                    <span class="od-muted">Cuando el equipo agregue comentarios, apareceran en este historial.</span>
                 </div>
                 {% endif %}
             </div>
@@ -89,15 +92,6 @@
                         <strong>{{ ticket.updated_at.strftime("%d/%m/%Y %H:%M") }}</strong>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="card od-card od-glass-dark od-fade-up">
-            <div class="card-body p-4">
-                <p class="text-uppercase small text-white-50 mb-3">Contexto rapido</p>
-                <p class="mb-0 text-white-50">
-                    Esta vista puede crecer despues con SLA, cambios de estado, asignaciones y acciones del tecnico sin rehacer la estructura visual.
-                </p>
             </div>
         </div>
     </div>

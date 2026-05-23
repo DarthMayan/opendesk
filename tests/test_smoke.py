@@ -170,6 +170,61 @@ def test_authenticated_user_can_create_ticket(client, app):
         assert ticket.assignee is None
 
 
+def test_edit_ticket_requires_login(client):
+    response = client.get("/tickets/1/edit", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_authenticated_user_can_edit_ticket(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        ticket = Ticket(
+            title="Teclado no responde",
+            description="El teclado USB no funciona en el equipo principal.",
+            status="abierto",
+            priority="media",
+            creator=creator,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    form_response = client.get(f"/tickets/{ticket_id}/edit")
+
+    assert form_response.status_code == 200
+    assert b"Editar ticket" in form_response.data
+    assert b"Teclado no responde" in form_response.data
+    assert b"Guardar cambios" in form_response.data
+
+    response = client.post(
+        f"/tickets/{ticket_id}/edit",
+        data={
+            "title": "Teclado y mouse no responden",
+            "description": "El teclado y el mouse USB dejaron de responder en el equipo principal.",
+            "priority": "alta",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Ticket actualizado correctamente." in response.data
+    assert b"Teclado y mouse no responden" in response.data
+    assert b"El teclado y el mouse USB dejaron de responder" in response.data
+    assert b"Alta" in response.data
+
+    with app.app_context():
+        updated_ticket = db.session.get(Ticket, ticket_id)
+
+        assert updated_ticket.title == "Teclado y mouse no responden"
+        assert updated_ticket.description == "El teclado y el mouse USB dejaron de responder en el equipo principal."
+        assert updated_ticket.priority == "alta"
+        assert updated_ticket.status == "abierto"
+
+
 def test_ticket_detail_renders_comments(client, app):
     _register_and_login(client)
 
