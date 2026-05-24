@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
+from pathlib import Path
 
 from app.extensions import db
 from app.models import Comment, Ticket, User
@@ -78,6 +80,184 @@ def test_register_can_create_admin_user(client, app):
 
         assert user is not None
         assert user.role == "admin"
+
+
+def test_profile_requires_login(client):
+    response = client.get("/profile", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_profile_renders_user_information(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        user = User.query.filter_by(email="emiliano@example.com").first()
+        ticket = Ticket(
+            title="Perfil con actividad",
+            description="Ticket para validar resumen del perfil.",
+            status="abierto",
+            priority="media",
+            creator=user,
+            assignee=user,
+        )
+        db.session.add(ticket)
+        db.session.flush()
+        db.session.add(Comment(body="Seguimiento desde perfil.", ticket=ticket, author=user))
+        db.session.commit()
+
+    response = client.get("/profile")
+
+    assert response.status_code == 200
+    assert b"Informacion del usuario" in response.data
+    assert b"Emiliano" in response.data
+    assert b"emiliano@example.com" in response.data
+    assert b"usuario" in response.data
+    assert b"Correo registrado" in response.data
+    assert b"Foto de perfil" in response.data
+    assert b'name="avatar"' in response.data
+    assert b'name="email"' not in response.data
+    assert b"Guardar cambios" in response.data
+
+
+def test_user_can_update_profile_name_without_changing_email(client, app):
+    _register_and_login(client)
+
+    response = client.post(
+        "/profile",
+        data={
+            "name": "Emiliano Actualizado",
+            "email": "emiliano.actualizado@example.com",
+            "current_password": "",
+            "new_password": "",
+            "confirm_password": "",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Perfil actualizado correctamente." in response.data
+    assert b"Emiliano Actualizado" in response.data
+    assert b"emiliano@example.com" in response.data
+    assert b"emiliano.actualizado@example.com" not in response.data
+
+    with app.app_context():
+        user = User.query.filter_by(email="emiliano@example.com").first()
+
+        assert user is not None
+        assert user.name == "Emiliano Actualizado"
+        assert user.email == "emiliano@example.com"
+        assert user.role == "usuario"
+
+
+def test_profile_ignores_duplicate_email_attempt(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        user = User(name="Otro", email="otro-perfil@example.com")
+        user.set_password("secret123")
+        db.session.add(user)
+        db.session.commit()
+
+    response = client.post(
+        "/profile",
+        data={
+            "name": "Emiliano",
+            "email": "otro-perfil@example.com",
+            "current_password": "",
+            "new_password": "",
+            "confirm_password": "",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Perfil actualizado correctamente." in response.data
+    assert b"otro-perfil@example.com" not in response.data
+
+    with app.app_context():
+        user = User.query.filter_by(email="emiliano@example.com").first()
+
+        assert user is not None
+        assert user.email == "emiliano@example.com"
+
+
+def test_user_can_update_password_from_profile(client):
+    _register_and_login(client)
+
+    response = client.post(
+        "/profile",
+        data={
+            "name": "Emiliano",
+            "email": "emiliano@example.com",
+            "current_password": "secret123",
+            "new_password": "nuevo123",
+            "confirm_password": "nuevo123",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Perfil actualizado correctamente." in response.data
+
+    client.get("/logout")
+    login_response = _login(client, "emiliano@example.com", password="nuevo123")
+
+    assert login_response.status_code == 200
+    assert b"Sesion iniciada correctamente." in login_response.data
+
+
+def test_user_can_upload_profile_avatar(client, app):
+    _register_and_login(client)
+
+    response = client.post(
+        "/profile",
+        data={
+            "name": "Emiliano",
+            "avatar": (BytesIO(b"fake image bytes"), "avatar.png"),
+            "current_password": "",
+            "new_password": "",
+            "confirm_password": "",
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Perfil actualizado correctamente." in response.data
+    assert b"uploads/avatars/user-" in response.data
+
+    with app.app_context():
+        user = User.query.filter_by(email="emiliano@example.com").first()
+        avatar_path = Path(app.config["PROFILE_AVATAR_UPLOAD_FOLDER"]) / user.avatar_filename
+
+        assert user.avatar_filename.endswith(".png")
+        assert avatar_path.exists()
+
+
+def test_profile_rejects_invalid_avatar_extension(client, app):
+    _register_and_login(client)
+
+    response = client.post(
+        "/profile",
+        data={
+            "name": "Emiliano",
+            "avatar": (BytesIO(b"not an image"), "avatar.txt"),
+            "current_password": "",
+            "new_password": "",
+            "confirm_password": "",
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    assert b"Sube una imagen valida" in response.data
+
+    with app.app_context():
+        user = User.query.filter_by(email="emiliano@example.com").first()
+
+        assert user.avatar_filename is None
 
 
 def test_tickets_requires_login(client):

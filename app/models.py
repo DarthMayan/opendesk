@@ -19,6 +19,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     # Roles: 'usuario' | 'tecnico' | 'admin'
     role = db.Column(db.String(20), nullable=False, default="usuario")
+    avatar_filename = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=_utcnow)
 
     def set_password(self, password):

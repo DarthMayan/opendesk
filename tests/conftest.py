@@ -19,6 +19,8 @@ def app(tmp_path):
         TESTING = True
         SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'test.db'}"
         SQLALCHEMY_TRACK_MODIFICATIONS = False
+        PROFILE_AVATAR_UPLOAD_FOLDER = str(tmp_path / "avatars")
+        MAX_CONTENT_LENGTH = 2 * 1024 * 1024
 
     app = create_app(TestConfig)
 
