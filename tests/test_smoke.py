@@ -98,11 +98,19 @@ def test_dashboard_requires_login(client):
     assert "/login" in response.headers["Location"]
 
 
-def test_dashboard_renders_metrics_for_authenticated_user(client, app):
+def test_dashboard_requires_admin_role(client):
     _register_and_login(client)
 
+    response = client.get("/dashboard")
+
+    assert response.status_code == 403
+
+
+def test_dashboard_renders_metrics_for_authenticated_user(client, app):
+    _register_and_login(client, name="Admin", email="admin-dashboard@example.com", role="admin")
+
     with app.app_context():
-        creator = User.query.filter_by(email="emiliano@example.com").first()
+        creator = User.query.filter_by(email="admin-dashboard@example.com").first()
         technician = User(name="Soporte", email="soporte-dashboard@example.com", role="tecnico")
         technician.set_password("secret123")
         db.session.add(technician)
@@ -160,6 +168,100 @@ def test_ticket_list_renders_for_authenticated_user(client, app):
     assert b"Laptop sin acceso a VPN" in response.data
     assert b"Alta prioridad" in response.data
     assert b"Ver detalle" in response.data
+
+
+def test_user_only_sees_own_tickets(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        other = User(name="Otro usuario", email="otro@example.com")
+        other.set_password("secret123")
+        db.session.add(other)
+        db.session.flush()
+
+        own_ticket = Ticket(
+            title="Mi laptop no carga",
+            description="La bateria no recibe energia.",
+            status="abierto",
+            priority="media",
+            creator=creator,
+        )
+        other_ticket = Ticket(
+            title="Ticket privado de otro usuario",
+            description="Este ticket no debe mostrarse al usuario actual.",
+            status="abierto",
+            priority="alta",
+            creator=other,
+        )
+        db.session.add_all([own_ticket, other_ticket])
+        db.session.commit()
+        other_ticket_id = other_ticket.id
+
+    response = client.get("/tickets/")
+
+    assert response.status_code == 200
+    assert b"Mi laptop no carga" in response.data
+    assert b"Ticket privado de otro usuario" not in response.data
+
+    detail_response = client.get(f"/tickets/{other_ticket_id}")
+
+    assert detail_response.status_code == 403
+
+
+def test_technician_sees_assigned_and_unassigned_tickets_only(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        technician = User(name="Tecnico A", email="tecnico-a@example.com", role="tecnico")
+        technician.set_password("secret123")
+        other_technician = User(name="Tecnico B", email="tecnico-b@example.com", role="tecnico")
+        other_technician.set_password("secret123")
+        db.session.add_all([technician, other_technician])
+        db.session.flush()
+
+        assigned_ticket = Ticket(
+            title="Asignado al tecnico A",
+            description="Debe verlo el tecnico A.",
+            status="abierto",
+            priority="media",
+            creator=creator,
+            assignee=technician,
+        )
+        unassigned_ticket = Ticket(
+            title="Pendiente sin responsable",
+            description="Debe verlo cualquier tecnico.",
+            status="abierto",
+            priority="media",
+            creator=creator,
+        )
+        other_assigned_ticket = Ticket(
+            title="Asignado al tecnico B",
+            description="No debe verlo el tecnico A.",
+            status="abierto",
+            priority="media",
+            creator=creator,
+            assignee=other_technician,
+        )
+        db.session.add_all([assigned_ticket, unassigned_ticket, other_assigned_ticket])
+        db.session.commit()
+        other_assigned_ticket_id = other_assigned_ticket.id
+
+    client.get("/logout")
+    _login(client, "tecnico-a@example.com")
+
+    response = client.get("/tickets/")
+
+    assert response.status_code == 200
+    assert b"Asignado al tecnico A" in response.data
+    assert b"Pendiente sin responsable" in response.data
+    assert b"Asignado al tecnico B" not in response.data
+    assert b"Editar" not in response.data
+
+    detail_response = client.get(f"/tickets/{other_assigned_ticket_id}")
+
+    assert detail_response.status_code == 403
 
 
 def test_authenticated_user_can_create_ticket(client, app):
@@ -280,6 +382,39 @@ def test_authenticated_user_can_edit_ticket(client, app):
             "Ticket editado: titulo: Teclado no responde -> Teclado y mouse no responden; "
             "descripcion actualizada; prioridad: Media -> Alta."
         )
+
+
+def test_user_cannot_edit_or_comment_other_users_ticket(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        other = User(name="Otro usuario", email="otro-edit@example.com")
+        other.set_password("secret123")
+        db.session.add(other)
+        db.session.flush()
+
+        ticket = Ticket(
+            title="Ticket ajeno",
+            description="El usuario actual no debe editar ni comentar este ticket.",
+            status="abierto",
+            priority="media",
+            creator=other,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    edit_response = client.get(f"/tickets/{ticket_id}/edit")
+    comment_response = client.post(
+        f"/tickets/{ticket_id}/comments",
+        data={"body": "Intento de comentario no permitido."},
+    )
+
+    assert edit_response.status_code == 403
+    assert comment_response.status_code == 403
+
+    with app.app_context():
+        assert Comment.query.filter_by(ticket_id=ticket_id).count() == 0
 
 
 def test_non_admin_cannot_assign_ticket(client, app):

@@ -338,7 +338,9 @@
                 <div class="navbar-nav me-auto mb-3 mb-lg-0">
                     <a class="nav-link od-nav-link{% if request.endpoint == 'main.index' %} active{% endif %}" href="{{ url_for('main.index') }}">Inicio</a>
                     {% if current_user.is_authenticated %}
+                    {% if current_user.role == 'admin' %}
                     <a class="nav-link od-nav-link{% if request.endpoint == 'main.dashboard' %} active{% endif %}" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+                    {% endif %}
                     <a class="nav-link od-nav-link{% if request.endpoint and request.endpoint.startswith('tickets.') %} active{% endif %}" href="{{ url_for('tickets.list_tickets') }}">Tickets</a>
                     {% endif %}
                 </div>

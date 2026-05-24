@@ -75,6 +75,38 @@ def _available_technicians():
     return User.query.filter_by(role="tecnico").order_by(User.name.asc()).all()
 
 
+def _can_view_ticket(ticket, user):
+    if user.role == "admin":
+        return True
+    if ticket.creator_id == user.id:
+        return True
+    if user.role == "tecnico":
+        return ticket.assignee_id in (None, user.id)
+    return False
+
+
+def _can_edit_ticket(ticket, user):
+    return user.role == "admin" or ticket.creator_id == user.id
+
+
+def _can_comment_ticket(ticket, user):
+    return _can_view_ticket(ticket, user)
+
+
+def _visible_tickets_for(user):
+    tickets = Ticket.query.order_by(Ticket.updated_at.desc(), Ticket.created_at.desc()).all()
+    return [ticket for ticket in tickets if _can_view_ticket(ticket, user)]
+
+
+def _get_visible_ticket_or_404(ticket_id):
+    ticket = db.session.get(Ticket, ticket_id)
+    if ticket is None:
+        abort(404)
+    if not _can_view_ticket(ticket, current_user):
+        abort(403)
+    return ticket
+
+
 def _add_ticket_history(ticket, body, author=None):
     db.session.add(
         Comment(
@@ -88,7 +120,7 @@ def _add_ticket_history(ticket, body, author=None):
 @tickets_bp.route("/")
 @login_required
 def list_tickets():
-    tickets = Ticket.query.order_by(Ticket.updated_at.desc(), Ticket.created_at.desc()).all()
+    tickets = _visible_tickets_for(current_user)
     return render_template(
         "tickets/list.html",
         tickets=tickets,
@@ -101,9 +133,7 @@ def list_tickets():
 @tickets_bp.route("/<int:ticket_id>/status", methods=["POST"])
 @login_required
 def update_ticket_status(ticket_id):
-    ticket = db.session.get(Ticket, ticket_id)
-    if ticket is None:
-        abort(404)
+    ticket = _get_visible_ticket_or_404(ticket_id)
 
     status = request.form.get("status", "").strip()
     if status not in STATUS_META:
@@ -130,9 +160,7 @@ def update_ticket_status(ticket_id):
 @tickets_bp.route("/<int:ticket_id>/assign", methods=["POST"])
 @login_required
 def assign_ticket(ticket_id):
-    ticket = db.session.get(Ticket, ticket_id)
-    if ticket is None:
-        abort(404)
+    ticket = _get_visible_ticket_or_404(ticket_id)
 
     if current_user.role != "admin":
         flash("Solo un administrador puede asignar responsables.", "danger")
@@ -175,9 +203,7 @@ def assign_ticket(ticket_id):
 @tickets_bp.route("/<int:ticket_id>/comments", methods=["POST"])
 @login_required
 def add_comment(ticket_id):
-    ticket = db.session.get(Ticket, ticket_id)
-    if ticket is None:
-        abort(404)
+    ticket = _get_visible_ticket_or_404(ticket_id)
 
     body = request.form.get("body", "").strip()
     if not body:
@@ -250,9 +276,9 @@ def create_ticket():
 @tickets_bp.route("/<int:ticket_id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_ticket(ticket_id):
-    ticket = db.session.get(Ticket, ticket_id)
-    if ticket is None:
-        abort(404)
+    ticket = _get_visible_ticket_or_404(ticket_id)
+    if not _can_edit_ticket(ticket, current_user):
+        abort(403)
 
     form_data = {
         "title": ticket.title,
@@ -316,9 +342,7 @@ def edit_ticket(ticket_id):
 @tickets_bp.route("/<int:ticket_id>")
 @login_required
 def ticket_detail(ticket_id):
-    ticket = db.session.get(Ticket, ticket_id)
-    if ticket is None:
-        abort(404)
+    ticket = _get_visible_ticket_or_404(ticket_id)
 
     comments = sorted(ticket.comments, key=lambda comment: comment.created_at)
     return render_template(
@@ -328,5 +352,6 @@ def ticket_detail(ticket_id):
         status_meta=STATUS_META,
         status_actions=_status_actions(ticket, current_user),
         technicians=_available_technicians() if current_user.role == "admin" else [],
+        can_edit_ticket=_can_edit_ticket(ticket, current_user),
         priority_meta=PRIORITY_META,
     )

@@ -116,7 +116,9 @@
                     </div>
                     <div class="d-flex flex-column justify-content-xl-center gap-2">
                         <a class="btn od-solid-btn px-4" href="{{ url_for('tickets.ticket_detail', ticket_id=ticket.id) }}">Ver detalle</a>
+                        {% if current_user.role == 'admin' or ticket.creator_id == current_user.id %}
                         <a class="btn od-subtle-btn px-4" href="{{ url_for('tickets.edit_ticket', ticket_id=ticket.id) }}">Editar</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

@@ -1,5 +1,5 @@
-from flask import Blueprint, jsonify, render_template
-from flask_login import login_required
+from flask import Blueprint, abort, jsonify, render_template
+from flask_login import current_user, login_required
 
 from ..models import Comment, Ticket, User
 
@@ -104,6 +104,9 @@ def index():
 @main_bp.route("/dashboard")
 @login_required
 def dashboard():
+    if current_user.role != "admin":
+        abort(403)
+
     return render_template("dashboard.html", metrics=_dashboard_metrics())
 
 
