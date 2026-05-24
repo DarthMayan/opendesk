@@ -1,5 +1,8 @@
+from datetime import datetime, timedelta, timezone
+
 from app.extensions import db
 from app.models import Comment, Ticket, User
+from app.sla import sla_summary
 
 
 def _register_and_login(client, name="Emiliano", email="emiliano@example.com", role="usuario"):
@@ -262,6 +265,187 @@ def test_technician_sees_assigned_and_unassigned_tickets_only(client, app):
     detail_response = client.get(f"/tickets/{other_assigned_ticket_id}")
 
     assert detail_response.status_code == 403
+
+
+def test_ticket_list_filters_by_text_status_priority_creator_assignee_and_unassigned(client, app):
+    _register_and_login(client, name="Admin", email="admin-filters@example.com", role="admin")
+
+    with app.app_context():
+        admin = User.query.filter_by(email="admin-filters@example.com").first()
+        creator = User(name="Solicitante", email="solicitante@example.com")
+        creator.set_password("secret123")
+        technician = User(name="Filtro Tecnico", email="filtro-tecnico@example.com", role="tecnico")
+        technician.set_password("secret123")
+        db.session.add_all([creator, technician])
+        db.session.flush()
+
+        vpn_ticket = Ticket(
+            title="VPN no conecta",
+            description="La conexion remota falla al iniciar sesion.",
+            status="abierto",
+            priority="alta",
+            creator=creator,
+            assignee=technician,
+        )
+        printer_ticket = Ticket(
+            title="Impresora sin toner",
+            description="El equipo de impresion requiere consumible.",
+            status="resuelto",
+            priority="baja",
+            creator=admin,
+        )
+        db.session.add_all([vpn_ticket, printer_ticket])
+        db.session.commit()
+        creator_id = creator.id
+        technician_id = technician.id
+
+    response = client.get("/tickets/?q=remota")
+    assert response.status_code == 200
+    assert b"VPN no conecta" in response.data
+    assert b"Impresora sin toner" not in response.data
+
+    response = client.get("/tickets/?status=resuelto")
+    assert b"Impresora sin toner" in response.data
+    assert b"VPN no conecta" not in response.data
+
+    response = client.get("/tickets/?priority=alta")
+    assert b"VPN no conecta" in response.data
+    assert b"Impresora sin toner" not in response.data
+
+    response = client.get(f"/tickets/?creator_id={creator_id}")
+    assert b"VPN no conecta" in response.data
+    assert b"Impresora sin toner" not in response.data
+
+    response = client.get(f"/tickets/?assignee_id={technician_id}")
+    assert b"VPN no conecta" in response.data
+    assert b"Impresora sin toner" not in response.data
+
+    response = client.get("/tickets/?unassigned=1")
+    assert b"Impresora sin toner" in response.data
+    assert b"VPN no conecta" not in response.data
+
+
+def test_ticket_list_and_detail_show_overdue_sla(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        ticket = Ticket(
+            title="Servidor sin respuesta",
+            description="El servidor principal no responde desde ayer.",
+            status="abierto",
+            priority="alta",
+            creator=creator,
+            created_at=datetime.now(timezone.utc) - timedelta(hours=6),
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    list_response = client.get("/tickets/")
+
+    assert list_response.status_code == 200
+    assert b"Servidor sin respuesta" in list_response.data
+    assert b"Vencido" in list_response.data
+    assert b"Escalado" in list_response.data
+    assert b"Vencidos 1" in list_response.data
+
+    detail_response = client.get(f"/tickets/{ticket_id}")
+
+    assert detail_response.status_code == 200
+    assert b"SLA" in detail_response.data
+    assert b"4 horas" in detail_response.data
+    assert b"Fecha limite" in detail_response.data
+    assert b"Vencido y escalado" in detail_response.data
+    assert b"Tiempo SLA" in detail_response.data
+    assert b"Tiempo vencido" in detail_response.data
+    assert b"od-sla-red" in detail_response.data
+
+
+def test_sla_summary_bar_thresholds(app):
+    now = datetime(2026, 5, 23, 12, 0, tzinfo=timezone.utc)
+
+    with app.app_context():
+        creator = User(name="SLA", email="sla@example.com")
+        creator.set_password("secret123")
+        db.session.add(creator)
+        db.session.flush()
+
+        green_ticket = Ticket(
+            title="Verde",
+            description="Menos de la mitad del tiempo.",
+            status="abierto",
+            priority="alta",
+            creator=creator,
+            created_at=now - timedelta(hours=1),
+        )
+        yellow_ticket = Ticket(
+            title="Amarillo",
+            description="Mas de la mitad del tiempo.",
+            status="abierto",
+            priority="alta",
+            creator=creator,
+            created_at=now - timedelta(hours=2),
+        )
+        orange_ticket = Ticket(
+            title="Naranja",
+            description="Tres cuartas partes del tiempo.",
+            status="abierto",
+            priority="alta",
+            creator=creator,
+            created_at=now - timedelta(hours=3),
+        )
+        red_ticket = Ticket(
+            title="Rojo",
+            description="Tiempo vencido.",
+            status="abierto",
+            priority="alta",
+            creator=creator,
+            created_at=now - timedelta(hours=5),
+        )
+
+        assert sla_summary(green_ticket, now=now)["bar_class"] == "od-sla-green"
+        assert sla_summary(yellow_ticket, now=now)["bar_class"] == "od-sla-yellow"
+        assert sla_summary(orange_ticket, now=now)["bar_class"] == "od-sla-orange"
+        assert sla_summary(red_ticket, now=now)["bar_class"] == "od-sla-red"
+        assert sla_summary(red_ticket, now=now)["bar_percent"] == 100
+
+
+def test_dashboard_counts_overdue_active_tickets_only(client, app):
+    _register_and_login(client, name="Admin", email="admin-sla@example.com", role="admin")
+
+    now = datetime.now(timezone.utc)
+    with app.app_context():
+        admin = User.query.filter_by(email="admin-sla@example.com").first()
+        overdue_ticket = Ticket(
+            title="Base de datos caida",
+            description="La base de datos no responde.",
+            status="en_proceso",
+            priority="alta",
+            creator=admin,
+            created_at=now - timedelta(hours=8),
+        )
+        resolved_old_ticket = Ticket(
+            title="Caso resuelto fuera de fecha",
+            description="No debe contar como vencido activo.",
+            status="resuelto",
+            priority="alta",
+            creator=admin,
+            created_at=now - timedelta(hours=8),
+            updated_at=now - timedelta(hours=2),
+        )
+        db.session.add_all([overdue_ticket, resolved_old_ticket])
+        db.session.commit()
+
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert b"Tickets vencidos" in response.data
+    assert b"Base de datos caida" in response.data
+    assert b"1 vencidos" in response.data
+    assert b"Promedio" in response.data
+    assert b"6.0h" in response.data
+    assert b"Abiertos vs cerrados" in response.data
 
 
 def test_authenticated_user_can_create_ticket(client, app):

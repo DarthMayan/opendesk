@@ -32,6 +32,7 @@
                     <span class="od-chip">Tickets {{ stats.total }}</span>
                     <span class="od-chip">Alta prioridad {{ stats.high_priority }}</span>
                     <span class="od-chip">Sin asignar {{ stats.unassigned }}</span>
+                    <span class="od-chip">Vencidos {{ stats.overdue }}</span>
                 </div>
             </div>
         </div>
@@ -69,11 +70,68 @@
     <div class="col-6 col-lg-3">
         <div class="card od-card od-stat h-100">
             <div class="card-body p-4">
-                <div class="od-section-kicker mb-2">Sin asignar</div>
-                <div class="display-6 fw-bold">{{ stats.unassigned }}</div>
-                <div class="small od-muted mt-2">Pendientes de responsable</div>
+                <div class="od-section-kicker mb-2">Vencidos</div>
+                <div class="display-6 fw-bold">{{ stats.overdue }}</div>
+                <div class="small od-muted mt-2">Fuera del tiempo SLA</div>
             </div>
         </div>
+    </div>
+</section>
+
+<section class="card od-card mb-4 od-fade-up">
+    <div class="card-body p-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-12 col-lg-4">
+                <label for="q" class="form-label fw-semibold">Buscar</label>
+                <input id="q" name="q" type="search" class="form-control od-form-control" value="{{ filters.q }}" placeholder="Titulo o descripcion">
+            </div>
+            <div class="col-6 col-lg-2">
+                <label for="status" class="form-label fw-semibold">Estado</label>
+                <select id="status" name="status" class="form-select od-form-control">
+                    <option value="">Todos</option>
+                    {% for value, meta in status_meta.items() %}
+                    <option value="{{ value }}"{% if filters.status == value %} selected{% endif %}>{{ meta.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-lg-2">
+                <label for="priority" class="form-label fw-semibold">Prioridad</label>
+                <select id="priority" name="priority" class="form-select od-form-control">
+                    <option value="">Todas</option>
+                    {% for value, meta in priority_meta.items() %}
+                    <option value="{{ value }}"{% if filters.priority == value %} selected{% endif %}>{{ meta.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg-2">
+                <label for="creator_id" class="form-label fw-semibold">Creador</label>
+                <select id="creator_id" name="creator_id" class="form-select od-form-control">
+                    <option value="">Todos</option>
+                    {% for creator in filter_options.creators %}
+                    <option value="{{ creator.id }}"{% if filters.creator_id == creator.id|string %} selected{% endif %}>{{ creator.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg-2">
+                <label for="assignee_id" class="form-label fw-semibold">Responsable</label>
+                <select id="assignee_id" name="assignee_id" class="form-select od-form-control">
+                    <option value="">Todos</option>
+                    {% for assignee in filter_options.assignees %}
+                    <option value="{{ assignee.id }}"{% if filters.assignee_id == assignee.id|string %} selected{% endif %}>{{ assignee.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 d-flex flex-column flex-lg-row gap-3 align-items-lg-center">
+                <div class="form-check">
+                    <input id="unassigned" name="unassigned" value="1" class="form-check-input" type="checkbox"{% if filters.unassigned == '1' %} checked{% endif %}>
+                    <label class="form-check-label fw-semibold" for="unassigned">Solo sin asignar</label>
+                </div>
+                <div class="d-flex flex-column flex-sm-row gap-2 ms-lg-auto">
+                    <button type="submit" class="btn od-solid-btn">Aplicar filtros</button>
+                    <a class="btn od-subtle-btn" href="{{ url_for('tickets.list_tickets') }}">Limpiar</a>
+                </div>
+            </div>
+        </form>
     </div>
 </section>
 
@@ -87,6 +145,10 @@
                         <div class="d-flex flex-wrap gap-2 mb-3">
                             <span class="badge {{ status_meta[ticket.status].class }}">{{ status_meta[ticket.status].label }}</span>
                             <span class="badge {{ priority_meta[ticket.priority].class }}">{{ priority_meta[ticket.priority].label }}</span>
+                            {% if sla_by_ticket[ticket.id].overdue %}
+                            <span class="badge rounded-pill text-bg-danger">Vencido</span>
+                            <span class="badge rounded-pill text-bg-warning text-dark">Escalado</span>
+                            {% endif %}
                             <span class="badge rounded-pill text-bg-dark-subtle text-dark">Ticket #{{ ticket.id }}</span>
                         </div>
                         <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
@@ -112,6 +174,10 @@
                                 <span class="od-meta-label">Estado visible</span>
                                 <span>{{ status_meta[ticket.status].label }}</span>
                             </div>
+                            <div class="col-sm-6 col-xl-3">
+                                <span class="od-meta-label">Vence</span>
+                                <span>{{ sla_by_ticket[ticket.id].due_at.strftime("%d/%m/%Y %H:%M") }}</span>
+                            </div>
                         </div>
                     </div>
                     <div class="d-flex flex-column justify-content-xl-center gap-2">
@@ -126,10 +192,10 @@
         {% endfor %}
     {% else %}
     <div class="od-empty-state p-5 text-center od-fade-up">
-        <p class="od-section-kicker mb-2">Sin tickets todavia</p>
-        <h2 class="h3 mb-3">Aun no hay incidencias registradas</h2>
+        <p class="od-section-kicker mb-2">Sin resultados</p>
+        <h2 class="h3 mb-3">No hay tickets que coincidan</h2>
         <p class="od-muted mb-0">
-            Crea el primer ticket para empezar a dar seguimiento al soporte.
+            Ajusta los filtros o crea un nuevo ticket para empezar a dar seguimiento.
         </p>
         <a class="btn btn-lg od-solid-btn mt-4" href="{{ url_for('tickets.create_ticket') }}">Crear primer ticket</a>
     </div>

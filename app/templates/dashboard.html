@@ -22,12 +22,13 @@
                     <p class="text-uppercase small text-white-50 mb-2">Operacion actual</p>
                     <h2 class="h4 mb-2">{{ metrics.totals.active }} tickets activos</h2>
                     <p class="mb-0 text-white-50">
-                        {{ metrics.totals.high_priority }} con prioridad alta y {{ metrics.totals.unassigned }} sin asignar.
+                        {{ metrics.totals.high_priority }} con prioridad alta, {{ metrics.totals.unassigned }} sin asignar y {{ metrics.totals.overdue }} vencidos.
                     </p>
                 </div>
                 <div class="d-flex gap-2 mt-4 flex-wrap">
                     <span class="od-chip">{{ metrics.totals.users }} usuarios</span>
                     <span class="od-chip">{{ metrics.totals.comments }} comentarios</span>
+                    <span class="od-chip">{{ metrics.totals.overdue }} vencidos</span>
                 </div>
             </div>
         </div>
@@ -35,7 +36,7 @@
 </section>
 
 <section class="row g-3 mb-4 od-fade-up">
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-xl-2">
         <div class="card od-card od-stat h-100">
             <div class="card-body p-4">
                 <div class="od-section-kicker mb-2">Tickets</div>
@@ -44,7 +45,7 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-xl-2">
         <div class="card od-card od-stat h-100">
             <div class="card-body p-4">
                 <div class="od-section-kicker mb-2">Activos</div>
@@ -53,7 +54,7 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-xl-2">
         <div class="card od-card od-stat h-100">
             <div class="card-body p-4">
                 <div class="od-section-kicker mb-2">Resueltos</div>
@@ -62,12 +63,32 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-xl-2">
         <div class="card od-card od-stat h-100">
             <div class="card-body p-4">
                 <div class="od-section-kicker mb-2">Sin asignar</div>
                 <div class="display-6 fw-bold">{{ metrics.totals.unassigned }}</div>
                 <div class="small od-muted mt-2">Pendientes de responsable</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-2">
+        <div class="card od-card od-stat h-100">
+            <div class="card-body p-4">
+                <div class="od-section-kicker mb-2">Vencidos</div>
+                <div class="display-6 fw-bold">{{ metrics.totals.overdue }}</div>
+                <div class="small od-muted mt-2">Fuera del tiempo SLA</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-2">
+        <div class="card od-card od-stat h-100">
+            <div class="card-body p-4">
+                <div class="od-section-kicker mb-2">Promedio</div>
+                <div class="display-6 fw-bold">
+                    {% if metrics.totals.avg_resolution_hours is none %}--{% else %}{{ metrics.totals.avg_resolution_hours }}h{% endif %}
+                </div>
+                <div class="small od-muted mt-2">Tiempo de resolucion</div>
             </div>
         </div>
     </div>
@@ -111,6 +132,48 @@
                     </div>
                     {% endfor %}
                 </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card od-card h-100 od-fade-up">
+            <div class="card-body p-4">
+                <p class="od-section-kicker mb-3">Abiertos vs cerrados</p>
+                <div class="d-grid gap-4">
+                    {% for row in metrics.open_closed_rows %}
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>{{ row.label }}</strong>
+                            <span class="od-muted">{{ row.count }}</span>
+                        </div>
+                        <div class="progress" role="progressbar" aria-label="{{ row.label }}" aria-valuenow="{{ row.percent }}" aria-valuemin="0" aria-valuemax="100" style="height: 0.75rem;">
+                            <div class="progress-bar{% if loop.first %} bg-warning{% else %} bg-success{% endif %}" style="width: {{ row.percent }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card od-card h-100 od-fade-up">
+            <div class="card-body p-4">
+                <p class="od-section-kicker mb-3">Resolucion</p>
+                {% if metrics.totals.avg_resolution_hours is none %}
+                <div class="od-empty-state p-4">
+                    <strong class="d-block mb-2">Sin tickets resueltos</strong>
+                    <span class="od-muted">El promedio aparecera cuando existan tickets resueltos o cerrados.</span>
+                </div>
+                {% else %}
+                <div class="od-panel p-4">
+                    <span class="od-meta-label">Tiempo promedio</span>
+                    <strong class="display-6">{{ metrics.totals.avg_resolution_hours }}h</strong>
+                    <div class="small od-muted mt-2">Calculado con tickets resueltos o cerrados.</div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -160,6 +223,37 @@
     </div>
 
     <div class="col-lg-5">
+        <div class="card od-card mb-4 od-fade-up">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                    <div>
+                        <p class="od-section-kicker mb-2">SLA</p>
+                        <h2 class="h4 mb-0">Tickets vencidos</h2>
+                    </div>
+                    <span class="badge rounded-pill text-bg-danger px-3 py-2">{{ metrics.overdue_tickets|length }}</span>
+                </div>
+
+                {% if metrics.overdue_tickets %}
+                <div class="d-grid gap-3">
+                    {% for ticket in metrics.overdue_tickets %}
+                    <a class="od-panel p-3 text-decoration-none text-reset" href="{{ url_for('tickets.ticket_detail', ticket_id=ticket.id) }}">
+                        <div class="d-flex justify-content-between gap-3 mb-2">
+                            <strong>{{ ticket.title }}</strong>
+                            <span class="badge rounded-pill text-bg-warning text-dark">Escalado</span>
+                        </div>
+                        <div class="small od-muted">Vencio: {{ metrics.sla_by_ticket[ticket.id].due_at.strftime("%d/%m/%Y %H:%M") }}</div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="od-empty-state p-4">
+                    <strong class="d-block mb-2">Sin tickets vencidos</strong>
+                    <span class="od-muted">Las solicitudes activas estan dentro de su tiempo limite.</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
         <div class="card od-card h-100 od-fade-up">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
@@ -181,6 +275,9 @@
                         <div class="d-flex gap-2 flex-wrap">
                             <span class="badge rounded-pill text-bg-dark-subtle text-dark">{{ ticket.status.replace("_", " ") }}</span>
                             <span class="badge rounded-pill text-bg-light text-dark">{{ ticket.priority }}</span>
+                            {% if metrics.sla_by_ticket[ticket.id].overdue %}
+                            <span class="badge rounded-pill text-bg-danger">vencido</span>
+                            {% endif %}
                         </div>
                     </a>
                     {% endfor %}

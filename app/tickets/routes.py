@@ -3,6 +3,7 @@ from flask_login import current_user, login_required
 
 from ..extensions import db
 from ..models import Comment, Ticket, User
+from ..sla import is_sla_overdue, sla_summaries
 
 tickets_bp = Blueprint("tickets", __name__, url_prefix="/tickets")
 
@@ -40,6 +41,7 @@ def _ticket_stats(tickets):
         "in_progress": sum(ticket.status == "en_proceso" for ticket in tickets),
         "high_priority": sum(ticket.priority == "alta" for ticket in tickets),
         "unassigned": sum(ticket.assignee_id is None for ticket in tickets),
+        "overdue": sum(is_sla_overdue(ticket) for ticket in tickets),
     }
 
 
@@ -98,6 +100,88 @@ def _visible_tickets_for(user):
     return [ticket for ticket in tickets if _can_view_ticket(ticket, user)]
 
 
+def _list_filter_options(tickets):
+    creators = sorted(
+        {
+            ticket.creator
+            for ticket in tickets
+            if ticket.creator is not None
+        },
+        key=lambda user: user.name.lower(),
+    )
+    assignees = sorted(
+        {
+            ticket.assignee
+            for ticket in tickets
+            if ticket.assignee is not None
+        },
+        key=lambda user: user.name.lower(),
+    )
+    return {
+        "creators": creators,
+        "assignees": assignees,
+    }
+
+
+def _list_filters_from_request():
+    return {
+        "q": request.args.get("q", "").strip(),
+        "status": request.args.get("status", "").strip(),
+        "priority": request.args.get("priority", "").strip(),
+        "creator_id": request.args.get("creator_id", "").strip(),
+        "assignee_id": request.args.get("assignee_id", "").strip(),
+        "unassigned": request.args.get("unassigned", "").strip(),
+    }
+
+
+def _matches_int_filter(raw_value, value):
+    if not raw_value:
+        return True
+    try:
+        return int(raw_value) == value
+    except ValueError:
+        return False
+
+
+def _filter_tickets(tickets, filters):
+    filtered = tickets
+
+    if filters["q"]:
+        query = filters["q"].lower()
+        filtered = [
+            ticket
+            for ticket in filtered
+            if query in ticket.title.lower()
+            or query in ticket.description.lower()
+        ]
+
+    if filters["status"] in STATUS_META:
+        filtered = [ticket for ticket in filtered if ticket.status == filters["status"]]
+
+    if filters["priority"] in PRIORITY_META:
+        filtered = [ticket for ticket in filtered if ticket.priority == filters["priority"]]
+
+    if filters["creator_id"]:
+        filtered = [
+            ticket
+            for ticket in filtered
+            if _matches_int_filter(filters["creator_id"], ticket.creator_id)
+        ]
+
+    if filters["assignee_id"]:
+        filtered = [
+            ticket
+            for ticket in filtered
+            if ticket.assignee_id is not None
+            and _matches_int_filter(filters["assignee_id"], ticket.assignee_id)
+        ]
+
+    if filters["unassigned"] == "1":
+        filtered = [ticket for ticket in filtered if ticket.assignee_id is None]
+
+    return filtered
+
+
 def _get_visible_ticket_or_404(ticket_id):
     ticket = db.session.get(Ticket, ticket_id)
     if ticket is None:
@@ -120,11 +204,16 @@ def _add_ticket_history(ticket, body, author=None):
 @tickets_bp.route("/")
 @login_required
 def list_tickets():
-    tickets = _visible_tickets_for(current_user)
+    visible_tickets = _visible_tickets_for(current_user)
+    filters = _list_filters_from_request()
+    tickets = _filter_tickets(visible_tickets, filters)
     return render_template(
         "tickets/list.html",
         tickets=tickets,
         stats=_ticket_stats(tickets),
+        filters=filters,
+        filter_options=_list_filter_options(visible_tickets),
+        sla_by_ticket=sla_summaries(tickets),
         status_meta=STATUS_META,
         priority_meta=PRIORITY_META,
     )
@@ -353,5 +442,6 @@ def ticket_detail(ticket_id):
         status_actions=_status_actions(ticket, current_user),
         technicians=_available_technicians() if current_user.role == "admin" else [],
         can_edit_ticket=_can_edit_ticket(ticket, current_user),
+        sla=sla_summaries([ticket])[ticket.id],
         priority_meta=PRIORITY_META,
     )
