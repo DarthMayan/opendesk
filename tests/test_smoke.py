@@ -3,7 +3,7 @@ from io import BytesIO
 from pathlib import Path
 
 from app.extensions import db
-from app.models import Comment, Ticket, User
+from app.models import Comment, Notification, Ticket, User
 from app.sla import sla_summary
 
 
@@ -262,6 +262,13 @@ def test_profile_rejects_invalid_avatar_extension(client, app):
 
 def test_tickets_requires_login(client):
     response = client.get("/tickets/", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_notifications_require_login(client):
+    response = client.get("/notifications", follow_redirects=False)
 
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]
@@ -870,6 +877,103 @@ def test_admin_can_assign_ticket_to_technician(client, app):
         assert updated_ticket.comments[0].body == "Responsable actualizado: Sin asignar -> Soporte Nivel 1."
 
 
+def test_assignment_creates_internal_notification(client, app):
+    _register_and_login(client, name="Admin", email="admin-notifications@example.com", role="admin")
+
+    with app.app_context():
+        admin = User.query.filter_by(email="admin-notifications@example.com").first()
+        creator = User(name="Solicitante Notificacion", email="solicitante-notificacion@example.com")
+        creator.set_password("secret123")
+        technician = User(name="Tecnico Notificado", email="tecnico-notificado@example.com", role="tecnico")
+        technician.set_password("secret123")
+        db.session.add_all([creator, technician])
+        db.session.flush()
+
+        ticket = Ticket(
+            title="Asignacion con aviso",
+            description="El tecnico debe recibir una notificacion interna.",
+            status="abierto",
+            priority="media",
+            creator=creator,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+        technician_id = technician.id
+
+    response = client.post(
+        f"/tickets/{ticket_id}/assign",
+        data={"assignee_id": str(technician_id)},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+
+    with app.app_context():
+        technician = User.query.filter_by(email="tecnico-notificado@example.com").first()
+        notification = Notification.query.filter_by(user_id=technician.id, type="assignment").first()
+
+        assert notification is not None
+        assert notification.ticket_id == ticket_id
+        assert "asigno el ticket" in notification.body
+        assert notification.read_at is None
+
+    client.get("/logout")
+    _login(client, "tecnico-notificado@example.com")
+
+    notifications_response = client.get("/notifications")
+
+    assert notifications_response.status_code == 200
+    assert b"Notificaciones" in notifications_response.data
+    assert b"Asignacion con aviso" not in notifications_response.data
+    assert b"Ticket #1 asignado a Tecnico Notificado" in notifications_response.data
+    assert b"Ver y marcar leida" in notifications_response.data
+
+
+def test_notification_can_be_marked_read_from_inbox(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        user = User.query.filter_by(email="emiliano@example.com").first()
+        ticket = Ticket(
+            title="Lectura de notificacion",
+            description="El usuario abrira una notificacion.",
+            status="abierto",
+            priority="media",
+            creator=user,
+        )
+        db.session.add(ticket)
+        db.session.flush()
+        notification = Notification(
+            type="status",
+            title="Ticket actualizado",
+            body="El ticket cambio de estado.",
+            ticket=ticket,
+            user=user,
+            actor=user,
+        )
+        db.session.add(notification)
+        db.session.commit()
+        notification_id = notification.id
+        ticket_id = ticket.id
+
+    inbox_response = client.get("/notifications")
+
+    assert inbox_response.status_code == 200
+    assert b"Ver y marcar leida" in inbox_response.data
+
+    response = client.post(f"/notifications/{notification_id}/read", follow_redirects=True)
+
+    assert response.status_code == 200
+    assert b"Lectura de notificacion" in response.data
+
+    with app.app_context():
+        notification = db.session.get(Notification, notification_id)
+
+        assert notification.read_at is not None
+        assert notification.ticket_id == ticket_id
+
+
 def test_admin_can_unassign_ticket(client, app):
     _register_and_login(client, name="Admin", email="admin-unassign@example.com", role="admin")
 
@@ -948,6 +1052,57 @@ def test_authenticated_user_can_add_comment_to_ticket(client, app):
         assert comment is not None
         assert comment.body == "Se reviso la cuenta y se escalo al equipo de identidad."
         assert comment.author.email == "emiliano@example.com"
+
+
+def test_comment_creates_internal_notification_for_creator(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        technician = User(name="Tecnico Comentario", email="tecnico-comentario@example.com", role="tecnico")
+        technician.set_password("secret123")
+        db.session.add(technician)
+        db.session.flush()
+
+        ticket = Ticket(
+            title="Comentario con aviso",
+            description="El creador debe recibir aviso cuando el tecnico comente.",
+            status="en_proceso",
+            priority="media",
+            creator=creator,
+            assignee=technician,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    client.get("/logout")
+    _login(client, "tecnico-comentario@example.com")
+
+    response = client.post(
+        f"/tickets/{ticket_id}/comments",
+        data={"body": "Ya estamos revisando el caso."},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        notification = Notification.query.filter_by(user_id=creator.id, type="comment").first()
+
+        assert notification is not None
+        assert notification.ticket_id == ticket_id
+        assert "agrego un comentario" in notification.body
+
+    client.get("/logout")
+    _login(client, "emiliano@example.com")
+
+    inbox_response = client.get("/notifications")
+
+    assert inbox_response.status_code == 200
+    assert b"Nuevo comentario en ticket" in inbox_response.data
+    assert b"Ya estamos revisando el caso." in inbox_response.data
 
 
 def test_add_comment_requires_body(client, app):
@@ -1041,6 +1196,48 @@ def test_technician_can_mark_ticket_in_progress_and_resolved(client, app):
             "Estado actualizado: Abierto -> En proceso.",
             "Estado actualizado: En proceso -> Resuelto.",
         ]
+
+
+def test_status_change_creates_internal_notification(client, app):
+    _register_and_login(client)
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        technician = User(name="Tecnico Estado", email="tecnico-estado@example.com", role="tecnico")
+        technician.set_password("secret123")
+        db.session.add(technician)
+        db.session.flush()
+
+        ticket = Ticket(
+            title="Estado con aviso",
+            description="El creador debe recibir aviso cuando cambie el estado.",
+            status="abierto",
+            priority="alta",
+            creator=creator,
+            assignee=technician,
+        )
+        db.session.add(ticket)
+        db.session.commit()
+        ticket_id = ticket.id
+
+    client.get("/logout")
+    _login(client, "tecnico-estado@example.com")
+
+    response = client.post(
+        f"/tickets/{ticket_id}/status",
+        data={"status": "en_proceso"},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+
+    with app.app_context():
+        creator = User.query.filter_by(email="emiliano@example.com").first()
+        notification = Notification.query.filter_by(user_id=creator.id, type="status").first()
+
+        assert notification is not None
+        assert notification.ticket_id == ticket_id
+        assert "cambio el estado de Abierto a En proceso" in notification.body
 
 
 def test_creator_can_close_resolved_ticket(client, app):

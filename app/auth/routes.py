@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -6,7 +7,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.utils import secure_filename
 
 from ..extensions import db
-from ..models import User
+from ..models import Notification, User
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -188,6 +189,46 @@ def profile():
         return redirect(url_for("auth.profile"))
 
     return render_template("auth/profile.html", **_profile_context())
+
+
+@auth_bp.route("/notifications")
+@login_required
+def notifications():
+    user_notifications = Notification.query.filter_by(
+        user_id=current_user.id,
+    ).order_by(Notification.created_at.desc()).all()
+
+    return render_template(
+        "auth/notifications.html",
+        notifications=user_notifications,
+    )
+
+
+@auth_bp.route("/notifications/<int:notification_id>/read", methods=["POST"])
+@login_required
+def mark_notification_read(notification_id):
+    notification = db.session.get(Notification, notification_id)
+    if notification is None or notification.user_id != current_user.id:
+        flash("No se encontro la notificacion solicitada.", "danger")
+        return redirect(url_for("auth.notifications"))
+
+    if notification.read_at is None:
+        notification.read_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+    return redirect(url_for("tickets.ticket_detail", ticket_id=notification.ticket_id))
+
+
+@auth_bp.route("/notifications/read-all", methods=["POST"])
+@login_required
+def mark_all_notifications_read():
+    Notification.query.filter_by(
+        user_id=current_user.id,
+        read_at=None,
+    ).update({"read_at": datetime.now(timezone.utc)})
+    db.session.commit()
+    flash("Notificaciones marcadas como leidas.", "success")
+    return redirect(url_for("auth.notifications"))
 
 
 @auth_bp.route("/logout")

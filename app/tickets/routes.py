@@ -2,7 +2,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..models import Comment, Ticket, User
+from ..models import Comment, Notification, Ticket, User
 from ..sla import is_sla_overdue, sla_summaries
 
 tickets_bp = Blueprint("tickets", __name__, url_prefix="/tickets")
@@ -201,6 +201,31 @@ def _add_ticket_history(ticket, body, author=None):
     )
 
 
+def _notification_recipients(ticket, *extra_users):
+    recipients = []
+    for user in (ticket.creator, ticket.assignee, *extra_users):
+        if user is None or user.id == current_user.id:
+            continue
+        if user.id not in {recipient.id for recipient in recipients}:
+            recipients.append(user)
+    return recipients
+
+
+def _notify_ticket_users(ticket, notification_type, title, body, users=None):
+    recipients = users if users is not None else _notification_recipients(ticket)
+    for user in recipients:
+        db.session.add(
+            Notification(
+                type=notification_type,
+                title=title,
+                body=body,
+                ticket=ticket,
+                user=user,
+                actor=current_user,
+            )
+        )
+
+
 @tickets_bp.route("/")
 @login_required
 def list_tickets():
@@ -240,6 +265,12 @@ def update_ticket_status(ticket_id):
         ticket,
         f"Estado actualizado: {previous_status} -> {next_status}.",
     )
+    _notify_ticket_users(
+        ticket,
+        "status",
+        f"Ticket #{ticket.id} cambio de estado",
+        f"{current_user.name} cambio el estado de {previous_status} a {next_status}.",
+    )
     db.session.commit()
 
     flash(f"Ticket marcado como {STATUS_META[status]['label'].lower()}.", "success")
@@ -257,11 +288,19 @@ def assign_ticket(ticket_id):
 
     assignee_id = request.form.get("assignee_id", "").strip()
     previous_assignee = ticket.assignee.name if ticket.assignee else "Sin asignar"
+    previous_assignee_user = ticket.assignee
     if not assignee_id:
         ticket.assignee = None
         _add_ticket_history(
             ticket,
             f"Responsable actualizado: {previous_assignee} -> Sin asignar.",
+        )
+        _notify_ticket_users(
+            ticket,
+            "assignment",
+            f"Ticket #{ticket.id} quedo sin responsable",
+            f"{current_user.name} dejo el ticket sin tecnico asignado.",
+            users=_notification_recipients(ticket, previous_assignee_user),
         )
         db.session.commit()
         flash("Ticket marcado como sin asignar.", "success")
@@ -283,6 +322,13 @@ def assign_ticket(ticket_id):
         ticket,
         f"Responsable actualizado: {previous_assignee} -> {assignee.name}.",
     )
+    _notify_ticket_users(
+        ticket,
+        "assignment",
+        f"Ticket #{ticket.id} asignado a {assignee.name}",
+        f"{current_user.name} asigno el ticket a {assignee.name}.",
+        users=_notification_recipients(ticket, previous_assignee_user, assignee),
+    )
     db.session.commit()
 
     flash(f"Ticket asignado a {assignee.name}.", "success")
@@ -301,6 +347,12 @@ def add_comment(ticket_id):
 
     comment = Comment(body=body, ticket=ticket, author=current_user)
     db.session.add(comment)
+    _notify_ticket_users(
+        ticket,
+        "comment",
+        f"Nuevo comentario en ticket #{ticket.id}",
+        f"{current_user.name} agrego un comentario: {body[:120]}",
+    )
     db.session.commit()
 
     flash("Comentario agregado correctamente.", "success")
