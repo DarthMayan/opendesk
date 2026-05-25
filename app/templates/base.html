@@ -418,7 +418,6 @@
                         {% endif %}
                         <span>{{ current_user.name }}</span>
                     </a>
-                    <span class="od-chip text-capitalize">{{ current_user.role }}</span>
                     <a class="btn btn-sm od-outline-btn" href="{{ url_for('auth.logout') }}">Cerrar sesion</a>
                     {% else %}
                     <a class="btn btn-sm od-outline-btn" href="{{ url_for('auth.login') }}">Iniciar sesion</a>

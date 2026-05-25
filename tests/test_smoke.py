@@ -73,7 +73,6 @@ def test_register_can_create_admin_user(client, app):
     assert response.status_code == 200
     assert b"Cuenta creada correctamente." in response.data
     assert b"Admin" in response.data
-    assert b"admin" in response.data
 
     with app.app_context():
         user = User.query.filter_by(email="admin-register@example.com").first()
