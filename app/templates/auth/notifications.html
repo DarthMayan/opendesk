@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Notificaciones | OpenDesk{% endblock %}
+
+{% block content %}
+<section class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4 od-fade-up">
+    <div>
+        <p class="od-section-kicker mb-2">Seguimiento</p>
+        <h1 class="display-6 fw-bold mb-2">Notificaciones</h1>
+        <p class="od-lead mb-0">Avisos importantes sobre cambios recientes en tus tickets.</p>
+    </div>
+    {% if unread_notifications %}
+    <form method="post" action="{{ url_for('auth.mark_all_notifications_read') }}">
+        <button type="submit" class="btn od-subtle-btn">Marcar todas como leidas</button>
+    </form>
+    {% endif %}
+</section>
+
+<section class="card od-card od-fade-up">
+    <div class="card-body p-4 p-md-5">
+        {% if notifications %}
+        <div class="d-grid gap-3">
+            {% for notification in notifications %}
+            <div class="od-panel p-3 p-md-4 {% if not notification.is_read %}border border-warning{% endif %}">
+                <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+                    <div>
+                        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                            <span class="badge rounded-pill {% if notification.is_read %}text-bg-secondary{% else %}text-bg-warning text-dark{% endif %}">
+                                {% if notification.is_read %}Leida{% else %}Nueva{% endif %}
+                            </span>
+                            <span class="small od-muted">{{ notification.created_at.strftime("%d/%m/%Y %H:%M") }}</span>
+                        </div>
+                        <h2 class="h5 fw-bold mb-2">{{ notification.title }}</h2>
+                        <p class="mb-2">{{ notification.body }}</p>
+                        <span class="small od-muted">Ticket #{{ notification.ticket_id }}</span>
+                    </div>
+                    <div class="d-flex align-items-lg-center">
+                        {% if notification.is_read %}
+                        <a class="btn od-subtle-btn" href="{{ url_for('tickets.ticket_detail', ticket_id=notification.ticket_id) }}">Ver ticket</a>
+                        {% else %}
+                        <form method="post" action="{{ url_for('auth.mark_notification_read', notification_id=notification.id) }}">
+                            <button type="submit" class="btn od-solid-btn">Ver y marcar leida</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="od-empty-state p-4">
+            <strong class="d-block mb-2">Sin notificaciones</strong>
+            <span class="od-muted">Cuando un ticket cambie de estado, sea asignado o reciba comentarios, veras los avisos aqui.</span>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

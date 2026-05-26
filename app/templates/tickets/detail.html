@@ -10,11 +10,20 @@
             <span class="badge rounded-pill text-bg-dark-subtle text-dark">Ticket #{{ ticket.id }}</span>
             <span class="badge {{ status_meta[ticket.status].class }}">{{ status_meta[ticket.status].label }}</span>
             <span class="badge {{ priority_meta[ticket.priority].class }}">{{ priority_meta[ticket.priority].label }}</span>
+            {% if sla.overdue %}
+            <span class="badge rounded-pill text-bg-danger">Vencido</span>
+            <span class="badge rounded-pill text-bg-warning text-dark">Escalado</span>
+            {% endif %}
         </div>
         <h1 class="display-6 fw-bold mb-2">{{ ticket.title }}</h1>
-        <p class="od-lead mb-0">Vista lista para soporte, historial y futuras acciones del flujo operativo.</p>
+        <p class="od-lead mb-0">Consulta la descripcion, responsable, fechas e historial de seguimiento de esta solicitud.</p>
     </div>
-    <a class="btn od-subtle-btn px-4" href="{{ url_for('tickets.list_tickets') }}">Volver a tickets</a>
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        {% if can_edit_ticket %}
+        <a class="btn od-solid-btn px-4" href="{{ url_for('tickets.edit_ticket', ticket_id=ticket.id) }}">Editar ticket</a>
+        {% endif %}
+        <a class="btn od-subtle-btn px-4" href="{{ url_for('tickets.list_tickets') }}">Volver a tickets</a>
+    </div>
 </section>
 
 <section class="row g-4">
@@ -36,6 +45,12 @@
                     <span class="badge rounded-pill text-bg-dark px-3 py-2">{{ comments|length }}</span>
                 </div>
 
+                <form method="post" action="{{ url_for('tickets.add_comment', ticket_id=ticket.id) }}" class="od-panel p-3 p-md-4 mb-4">
+                    <label for="body" class="form-label fw-semibold">Agregar comentario</label>
+                    <textarea id="body" name="body" class="form-control od-form-control mb-3" rows="4" placeholder="Escribe una actualizacion o respuesta sobre este ticket." required></textarea>
+                    <button type="submit" class="btn od-solid-btn">Agregar comentario</button>
+                </form>
+
                 {% if comments %}
                     <div class="d-grid gap-4">
                         {% for comment in comments %}
@@ -56,7 +71,7 @@
                 {% else %}
                 <div class="od-empty-state p-4">
                     <strong class="d-block mb-2">Sin comentarios por ahora</strong>
-                    <span class="od-muted">Este detalle ya tiene la estructura lista para mostrar historial de soporte cuando se capture.</span>
+                    <span class="od-muted">Cuando el equipo agregue comentarios, apareceran en este historial.</span>
                 </div>
                 {% endif %}
             </div>
@@ -88,17 +103,81 @@
                         <span class="od-meta-label">Ultima actualizacion</span>
                         <strong>{{ ticket.updated_at.strftime("%d/%m/%Y %H:%M") }}</strong>
                     </div>
+                    <div class="od-panel p-3">
+                        <span class="od-meta-label">SLA</span>
+                        <strong>{{ sla.hours }} horas</strong>
+                    </div>
+                    <div class="od-panel p-3">
+                        <span class="od-meta-label">Fecha limite</span>
+                        <strong>{{ sla.due_at.strftime("%d/%m/%Y %H:%M") }}</strong>
+                    </div>
+                    <div class="od-panel p-3">
+                        <span class="od-meta-label">Vencimiento</span>
+                        <strong>{% if sla.overdue %}Vencido y escalado{% else %}Dentro de tiempo{% endif %}</strong>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="card od-card od-glass-dark od-fade-up">
+        {% if current_user.role == "admin" %}
+        <div class="card od-card mb-4 od-fade-up">
             <div class="card-body p-4">
-                <p class="text-uppercase small text-white-50 mb-3">Contexto rapido</p>
-                <p class="mb-0 text-white-50">
-                    Esta vista puede crecer despues con SLA, cambios de estado, asignaciones y acciones del tecnico sin rehacer la estructura visual.
-                </p>
+                <p class="od-section-kicker mb-3">Responsable</p>
+                <form method="post" action="{{ url_for('tickets.assign_ticket', ticket_id=ticket.id) }}" class="d-grid gap-3">
+                    <div>
+                        <label for="assignee_id" class="form-label fw-semibold">Asignar a</label>
+                        <select id="assignee_id" name="assignee_id" class="form-select od-form-control">
+                            <option value="">Sin asignar</option>
+                            {% for technician in technicians %}
+                            <option value="{{ technician.id }}"{% if ticket.assignee_id == technician.id %} selected{% endif %}>{{ technician.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% if technicians %}
+                    <button type="submit" class="btn od-solid-btn">Guardar responsable</button>
+                    {% else %}
+                    <div class="od-empty-state p-3">
+                        <span class="od-muted">No hay tecnicos registrados para asignar.</span>
+                    </div>
+                    <button type="submit" class="btn od-subtle-btn">Dejar sin asignar</button>
+                    {% endif %}
+                </form>
             </div>
+        </div>
+        {% endif %}
+
+        {% if status_actions %}
+        <div class="card od-card od-fade-up">
+            <div class="card-body p-4">
+                <p class="od-section-kicker mb-3">Cambiar estado</p>
+                <div class="d-grid gap-2">
+                    {% for action in status_actions %}
+                    <form method="post" action="{{ url_for('tickets.update_ticket_status', ticket_id=ticket.id) }}">
+                        <input type="hidden" name="status" value="{{ action.key }}">
+                        <button type="submit" class="btn od-subtle-btn w-100 text-start">
+                            {{ action.label }}
+                        </button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="card od-card mt-4 od-fade-up">
+    <div class="card-body p-4 p-md-5">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-3 flex-wrap">
+            <div>
+                <p class="od-section-kicker mb-2">Tiempo SLA</p>
+                <h2 class="h4 mb-1">{{ sla.status_label }}</h2>
+                <p class="od-muted mb-0">Fecha limite: {{ sla.due_at.strftime("%d/%m/%Y %H:%M") }}</p>
+            </div>
+            <span class="badge rounded-pill {% if sla.overdue %}text-bg-danger{% else %}text-bg-dark{% endif %} px-3 py-2">{{ sla.elapsed_percent }}%</span>
+        </div>
+        <div class="progress" role="progressbar" aria-label="Tiempo SLA consumido" aria-valuenow="{{ sla.bar_percent }}" aria-valuemin="0" aria-valuemax="100" style="height: 1rem;">
+            <div class="progress-bar {{ sla.bar_class }}" style="width: {{ sla.bar_percent }}%"></div>
         </div>
     </div>
 </section>

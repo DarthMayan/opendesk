@@ -19,6 +19,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     # Roles: 'usuario' | 'tecnico' | 'admin'
     role = db.Column(db.String(20), nullable=False, default="usuario")
+    avatar_filename = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=_utcnow)
 
     def set_password(self, password):
@@ -60,6 +61,29 @@ class Comment(db.Model):
 
     ticket = db.relationship("Ticket", backref=db.backref("comments", lazy=True))
     author = db.relationship("User")
+
+
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(40), nullable=False)
+    title = db.Column(db.String(160), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    read_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    ticket_id = db.Column(db.Integer, db.ForeignKey("tickets.id"), nullable=False)
+    actor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    user = db.relationship("User", foreign_keys=[user_id])
+    ticket = db.relationship("Ticket")
+    actor = db.relationship("User", foreign_keys=[actor_id])
+
+    @property
+    def is_read(self):
+        return self.read_at is not None
 
 
 @login_manager.user_loader
