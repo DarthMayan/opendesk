@@ -5,6 +5,8 @@ tecnologías de código abierto.
 
 > Proyecto final · Sistemas y Lenguajes de Código Abierto · Universidad Panamericana.
 
+**Demo en vivo:** https://opendesk-a7uf.onrender.com · **Licencia:** [MIT](LICENSE)
+
 ---
 
 ## El problema
@@ -48,6 +50,20 @@ En concreto, el sistema entrega:
 
 Todas las piezas son de código abierto y debidamente licenciadas. El proyecto
 no usa ningún servicio de pago.
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [Arquitectura](docs/arquitectura.md) | Diagrama de capas y responsabilidades |
+| [Modelo de datos](docs/modelo-datos.md) | Entidades, relaciones y restricciones |
+| [Módulo 1 — Auth y roles](docs/modulos/m1-auth.md) | Registro, login, roles, control de acceso |
+| [Módulo 2 — Tickets](docs/modulos/m2-tickets.md) | CRUD, estados, asignación, comentarios |
+| [Módulo 3 — SLA](docs/modulos/m3-sla.md) | Tiempos límite, vencidos, escalado |
+| [Módulo 4 — Dashboard](docs/modulos/m4-dashboard.md) | Métricas de soporte |
+| [Manual de instalación](docs/manual-instalacion.md) | Puesta en marcha local y con Docker |
+| [Manual de despliegue (Render)](docs/manual-despliegue-render.md) | Despliegue en la nube |
+| [Guía de contribución](CONTRIBUTING.md) | Flujo de trabajo del equipo |
 
 ## Equipo y roles
 
@@ -98,6 +114,16 @@ docker-compose up --build
 ```bash
 python -m pytest
 ```
+
+La suite cubre autenticación, control por rol, tickets y dashboard.
+
+## Despliegue
+
+La aplicación está desplegada en Render (plan gratuito) a partir de
+[`render.yaml`](render.yaml). Pasos detallados en el
+[manual de despliegue](docs/manual-despliegue-render.md).
+
+Demo: https://opendesk-a7uf.onrender.com
 
 ## Licencia
 
