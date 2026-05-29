@@ -1,100 +1,190 @@
 # OpenDesk
 
-Sistema de **helpdesk y gestión de tickets de TI** construido íntegramente con
-tecnologías de código abierto.
+Sistema de helpdesk y gestion de tickets de TI construido con tecnologias de
+codigo abierto.
 
-> Proyecto final · Sistemas y Lenguajes de Código Abierto · Universidad Panamericana.
+> Proyecto final - Sistemas y Lenguajes de Codigo Abierto - Universidad
+> Panamericana.
 
----
+## Descripcion
 
-## El problema
+OpenDesk centraliza solicitudes de soporte en una aplicacion web Flask. La base
+actual permite registrar usuarios, iniciar sesion y consultar tickets con su
+estado, prioridad, responsable e historial de comentarios.
 
-Muchos equipos de TI reciben solicitudes de soporte por correo, chat o de voz.
-Sin una herramienta central, esas solicitudes se pierden, no se priorizan y nadie
-mide cuánto se tarda en responder. No hay trazabilidad ni rendición de cuentas.
+La meta del proyecto es ofrecer una mesa de ayuda simple para equipos de TI:
+menos solicitudes perdidas, mejor trazabilidad y una vista clara del trabajo
+pendiente.
 
-## La solución que estamos construyendo
+## Alcance actual
 
-OpenDesk centraliza todas las incidencias en **tickets** con un ciclo de vida
-claro. Cada solicitud queda registrada, se asigna a un técnico, tiene una
-prioridad y un **tiempo límite de atención (SLA)**. Si un ticket se vence, el
-sistema lo **escala automáticamente**. Un panel de métricas permite a los
-responsables ver el estado del soporte de un vistazo.
+En esta rama el sistema incluye:
 
-En concreto, el sistema entrega:
+1. Autenticacion de usuarios: registro, login, logout y sesiones con
+   Flask-Login.
+2. Modelo de usuarios con roles preparados para `usuario`, `tecnico` y `admin`.
+3. Modelo de tickets con estado, prioridad, creador y tecnico asignado.
+4. Modelo de comentarios para conservar historial por ticket.
+5. Vistas UI para inicio, autenticacion, listado de tickets y detalle de ticket.
+6. Endpoint de salud en `/health`.
+7. Pruebas automatizadas con pytest para rutas principales, autenticacion y
+   render de tickets.
 
-1. **Autenticación y control de acceso** — registro/login con roles
-   diferenciados: `usuario` (crea tickets), `técnico` (los atiende),
-   `admin` (gestiona y supervisa).
-2. **Gestión de tickets** — crear, asignar, cambiar de estado
-   (abierto → en proceso → resuelto → cerrado), prioridad y comentarios/historial.
-3. **SLA y escalado automático** — cada prioridad tiene un tiempo límite; los
-   tickets vencidos se marcan y escalan sin intervención manual.
-4. **Dashboard de métricas** — tickets abiertos, vencidos, carga por técnico y
-   tiempos promedio de resolución.
+Funcionalidades planeadas para completar el flujo operativo:
 
-## Stack tecnológico (100% OSS)
+- Creacion y edicion de tickets desde la interfaz.
+- Cambios de estado y asignacion por rol.
+- Reglas de SLA y escalamiento automatico.
+- Dashboard administrativo con metricas de operacion.
 
-| Capa | Tecnología | Por qué |
-|---|---|---|
-| Lenguaje | Python 3 | Conocido por el equipo, ecosistema amplio |
-| Framework | Flask | Ligero, bajo consumo de recursos |
-| ORM | Flask-SQLAlchemy | Modelos persistentes simples |
-| Autenticación | Flask-Login | Sesiones y control de acceso sin servicios externos |
-| Base de datos | SQLite (local) / PostgreSQL (nube) | Cero configuración en local |
-| Interfaz | Jinja2 + Bootstrap 5 | Sin build de Node, render del lado del servidor |
-| Pruebas | pytest | Suite automatizada |
-| Contenedores | Docker + docker-compose | Entorno reproducible |
+## Stack tecnologico
 
-Todas las piezas son de código abierto y debidamente licenciadas. El proyecto
-no usa ningún servicio de pago.
+| Capa | Tecnologia | Uso |
+| --- | --- | --- |
+| Lenguaje | Python 3 | Backend de la aplicacion |
+| Framework | Flask | Rutas, vistas y ciclo web |
+| ORM | Flask-SQLAlchemy | Persistencia de usuarios, tickets y comentarios |
+| Autenticacion | Flask-Login | Manejo de sesiones |
+| Base de datos | SQLite local / PostgreSQL en contenedor o nube | Desarrollo y despliegue |
+| Templates | Jinja2 + Bootstrap 5 | Interfaz renderizada del lado del servidor |
+| Pruebas | pytest | Validacion automatizada |
+| Contenedores | Docker + Docker Compose | Entorno reproducible |
 
-## Equipo y roles
+## Estructura del proyecto
 
-> Todos los integrantes son responsables de **todo el sistema**. El rol indica
-> el área principal de cada quien, no un trabajo aislado: todos commitean y
-> todos revisan los Pull Requests de los demás.
+```text
+opendesk/
++-- app/
+|   +-- auth/          # Rutas de autenticacion
+|   +-- main/          # Inicio y health check
+|   +-- tickets/       # Rutas de listado y detalle de tickets
+|   +-- templates/     # Vistas Jinja2
+|   +-- config.py      # Configuracion por variables de entorno
+|   +-- extensions.py  # Instancias compartidas de Flask extensions
+|   +-- models.py      # Modelos SQLAlchemy
++-- tests/             # Suite pytest
++-- Dockerfile
++-- docker-compose.yml
++-- requirements.txt
++-- run.py
+```
 
-| Integrante | Rol principal | Responsabilidades |
-|---|---|---|
-| **Diego Morales Gómez** | QA / DevOps / Gestión | Pruebas pytest, Docker, despliegue, tablero de proyecto, coordinación |
-| **Diego Salvador Padilla Victoria** | Backend lead | Modelos, autenticación, lógica de tickets y SLA |
-| **Joseph Emiliano Arias Limas** | Frontend / Documentación | Plantillas e interfaz, README y manuales |
+## Instalacion local
 
-## Cómo trabajamos
+Requisitos:
 
-- La rama `main` está **protegida**: nadie hace push directo.
-- Todo cambio entra por una rama (`feature/*`, `fix/*`, `docs/*`) y un
-  **Pull Request** que debe ser aprobado por otro integrante (code review).
-- Commits pequeños, frecuentes y descriptivos según la convención de
-  [CONTRIBUTING.md](CONTRIBUTING.md).
-- El avance del equipo se registra en la carpeta [`bitacora/`](bitacora/).
+- Python 3.10 o superior
+- pip
 
-## Instalación rápida
+Pasos:
 
 ```bash
 git clone https://github.com/DarthMayan/opendesk.git
 cd opendesk
-python -m venv venv
-source venv/bin/activate        # Windows (PowerShell): .\venv\Scripts\Activate.ps1
+python -m venv .venv
+```
+
+Activar el entorno virtual:
+
+```bash
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+
+# macOS/Linux
+source .venv/bin/activate
+```
+
+Instalar dependencias y preparar variables:
+
+```bash
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-cp .env.example .env            # Windows: Copy-Item .env.example .env
+cp .env.example .env
+```
+
+En Windows PowerShell, si `cp` no esta disponible:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Ejecutar la aplicacion:
+
+```bash
 python run.py
 ```
 
-La aplicación queda disponible en http://localhost:5000
+La aplicacion local queda disponible en:
 
-### Con Docker
+```text
+http://localhost:5000
+```
+
+## Variables de entorno
+
+El archivo `.env.example` incluye los valores base:
+
+```env
+SECRET_KEY=cambia-esta-clave-en-produccion
+DATABASE_URL=sqlite:///opendesk.db
+```
+
+Si `DATABASE_URL` no se define, la app usa SQLite local en
+`sqlite:///opendesk.db`. Para despliegues o Docker se puede usar PostgreSQL con
+una URL de la forma:
+
+```env
+DATABASE_URL=postgresql://usuario:password@host:5432/opendesk
+```
+
+## Ejecucion con Docker
 
 ```bash
 docker-compose up --build
 ```
 
+Docker Compose levanta:
+
+- `web`: aplicacion Flask servida con Gunicorn.
+- `db`: PostgreSQL 16 Alpine.
+
+La aplicacion en Docker queda disponible en:
+
+```text
+http://localhost:8000
+```
+
+Para detener los servicios:
+
+```bash
+docker-compose down
+```
+
 ## Pruebas
+
+Ejecutar la suite:
 
 ```bash
 python -m pytest
 ```
+
+Las pruebas usan una configuracion temporal definida en `tests/conftest.py`, por
+lo que no dependen de la base de datos local de desarrollo.
+
+## Flujo de trabajo
+
+- La rama `main` se mantiene protegida.
+- Los cambios entran por ramas `feature/*`, `fix/*` o `docs/*`.
+- Todo cambio debe pasar por Pull Request y revision de otro integrante.
+- Los commits siguen el formato descrito en [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Equipo
+
+| Integrante | Rol principal |
+| --- | --- |
+| Diego Morales Gomez | QA / DevOps / gestion |
+| Diego Salvador Padilla Victoria | Backend lead |
+| Joseph Emiliano Arias Limas | Frontend / documentacion |
 
 ## Licencia
 
